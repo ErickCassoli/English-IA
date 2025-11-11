@@ -11,11 +11,11 @@ log = get_logger(__name__)
 _connection: sqlite3.Connection | None = None
 
 
-def _resolve_db_path(url: str) -> Path:
-    if not url.startswith("sqlite:///"):
-        raise ValueError("Only sqlite:/// URLs are supported")
-    relative = url.removeprefix("sqlite:///")
-    path = Path(relative)
+def _resolve_path() -> Path:
+    if not settings.db_url.startswith("sqlite:///"):
+        raise ValueError("Only sqlite:/// URLs are supported in the MVP")
+    raw_path = settings.db_url.removeprefix("sqlite:///")
+    path = Path(raw_path)
     if not path.is_absolute():
         path = Path.cwd() / path
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -25,11 +25,10 @@ def _resolve_db_path(url: str) -> Path:
 def get_connection() -> sqlite3.Connection:
     global _connection
     if _connection is None:
-        db_path = _resolve_db_path(settings.db_url)
+        db_path = _resolve_path()
         _connection = sqlite3.connect(db_path, check_same_thread=False)
         _connection.row_factory = sqlite3.Row
-        _connection.execute("PRAGMA foreign_keys = ON;")
-        log.info("sqlite connection ready", extra={"path": str(db_path)})
+        log.info("sqlite connection ready", extra={"trace_id": "bootstrap", "path": str(db_path)})
     return _connection
 
 
@@ -37,6 +36,20 @@ def init_db() -> None:
     conn = get_connection()
     conn.executescript(
         """
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS sessions (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            device TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
+
         CREATE TABLE IF NOT EXISTS messages (
             id TEXT PRIMARY KEY,
             trace_id TEXT NOT NULL,
@@ -46,7 +59,7 @@ def init_db() -> None:
             created_at TEXT NOT NULL
         );
 
-        CREATE TABLE IF NOT EXISTS prompt_errors (
+        CREATE TABLE IF NOT EXISTS errors (
             id TEXT PRIMARY KEY,
             trace_id TEXT NOT NULL,
             location TEXT NOT NULL,
@@ -59,6 +72,7 @@ def init_db() -> None:
             id TEXT PRIMARY KEY,
             trace_id TEXT NOT NULL,
             topic TEXT NOT NULL,
+            difficulty TEXT,
             created_at TEXT NOT NULL
         );
 
@@ -86,17 +100,9 @@ def init_db() -> None:
 
         CREATE TABLE IF NOT EXISTS stats_daily (
             date TEXT PRIMARY KEY,
-            chats INTEGER NOT NULL DEFAULT 0,
-            quizzes INTEGER NOT NULL DEFAULT 0,
-            flashcards INTEGER NOT NULL DEFAULT 0
-        );
-
-        CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY,
-            email TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            display_name TEXT NOT NULL,
-            created_at TEXT NOT NULL
+            minutes INTEGER NOT NULL DEFAULT 0,
+            accuracy REAL NOT NULL DEFAULT 0,
+            errors TEXT
         );
         """
     )

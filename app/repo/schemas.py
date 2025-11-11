@@ -1,36 +1,39 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+
+from pydantic import BaseModel, Field
 
 
-@dataclass
-class ChatMessage:
+class ChatMessage(BaseModel):
     id: str
     trace_id: str
     user_input: str
     corrected: str
-    metadata: dict[str, Any]
+    metadata: dict[str, str] | None = None
     created_at: datetime
 
 
-@dataclass
-class QuizQuestion:
+class QuizQuestion(BaseModel):
     id: str
     prompt: str
-    options: list[str]
+    options: list[str] = Field(default_factory=list)
     answer: str
     rationale: str
 
 
-@dataclass
-class FlashcardRow:
+class Flashcard(BaseModel):
     id: str
     front: str
     back: str
-    tag: str | None
+    tag: str | None = None
     repetitions: int
     interval: int
     easiness: float
     due_at: datetime
+
+
+class StatsSummary(BaseModel):
+    last_7_days_minutes: int
+    accuracy_estimate: float
+    top_error_tags: list[str]

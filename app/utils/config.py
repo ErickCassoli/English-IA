@@ -10,10 +10,10 @@ load_dotenv()
 
 
 class Settings(BaseModel):
+    app_name: str = "english-ia"
     environment: str = "local"
     ollama_host: str = "http://localhost:11434"
-    llm_model: str = "llama3"
-    jwt_secret: str = "change-me"
+    ollama_model: str = "llama3"
     db_url: str = "sqlite:///./english_ia.db"
     allowed_origins: list[str] = Field(
         default_factory=lambda: [
@@ -25,21 +25,16 @@ class Settings(BaseModel):
     )
 
     @classmethod
-    def from_env(cls) -> Settings:
+    def from_env(cls) -> "Settings":
         data = {
             "environment": os.getenv("ENVIRONMENT", "local"),
             "ollama_host": os.getenv("OLLAMA_HOST", "http://localhost:11434"),
-            "llm_model": os.getenv("LLM_MODEL", "llama3"),
-            "jwt_secret": os.getenv("JWT_SECRET", "change-me"),
+            "ollama_model": os.getenv("OLLAMA_MODEL", "llama3"),
             "db_url": os.getenv("DB_URL", "sqlite:///./english_ia.db"),
         }
         origins = os.getenv("ALLOWED_ORIGINS")
         if origins:
-            data["allowed_origins"] = [
-                origin.strip()
-                for origin in origins.split(",")
-                if origin.strip()
-            ]
+            data["allowed_origins"] = [origin.strip() for origin in origins.split(",") if origin.strip()]
         return cls(**data)
 
 
