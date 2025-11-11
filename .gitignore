@@ -9,3 +9,5 @@ __pycache__/
 .mypy_cache/
 htmlcov/
 english_ia.db
+data.db
+*.sqlite3

@@ -1,78 +1,44 @@
 from __future__ import annotations
 
-from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
-from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, Field
-
-from app.repo import dao
-from app.services import srs
-from app.utils import ids
+from app.repo import dao, models
+from app.repo.db import get_db
+from app.schemas.flashcard import (
+    FlashcardReviewRequest,
+    FlashcardReviewResponse,
+    FlashcardSchema,
+)
+from app.services.evaluation import srs
 
 router = APIRouter(prefix="/api/flashcards", tags=["flashcards"])
 
 
-class Flashcard(BaseModel):
-    id: str
-    front: str
-    back: str
-    tag: str | None = None
-    repetitions: int
-    interval: int
-    easiness: float
-    due_at: datetime
-
-
-class FlashcardReviewRequest(BaseModel):
-    card_id: str
-    quality: int = Field(ge=0, le=5)
-
-
-class FlashcardReviewResponse(BaseModel):
-    trace_id: str
-    card_id: str
-    due_at: datetime
-    repetitions: int
-    interval: int
-    easiness: float
-
-
-@router.get("/due", response_model=list[Flashcard])
-def list_due_cards(limit: int = 10) -> list[Flashcard]:
-    cards = dao.get_flashcards_due(limit=limit)
-    return [Flashcard(**card) for card in cards]
-
-
-@router.post("/review", response_model=FlashcardReviewResponse)
-def review_card(payload: FlashcardReviewRequest) -> FlashcardReviewResponse:
-    trace_id = ids.new_trace_id()
-    cards = {card["id"]: card for card in dao.get_flashcards_due(limit=100)}
-    card = cards.get(payload.card_id)
-    if not card:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Flashcard not due or missing",
+@router.get("/due", response_model=list[FlashcardSchema])
+def due_flashcards(db: Session = Depends(get_db)):
+    cards = dao.list_flashcards_due(db)
+    return [
+        FlashcardSchema(
+            id=card.id,
+            front=card.front,
+            back=card.back,
+            due_at=card.due_at,
+            reps=card.reps,
+            interval=card.interval,
+            ease=float(card.ease),
         )
-    state = srs.CardState(
-        repetitions=card["repetitions"],
-        interval=card["interval"],
-        easiness=card["easiness"],
-        due_at=datetime.fromisoformat(card["due_at"]),
-    )
-    updated = srs.review(state, payload.quality)
-    dao.update_flashcard_state(
-        card_id=payload.card_id,
-        repetitions=updated.repetitions,
-        interval=updated.interval,
-        easiness=updated.easiness,
-        due_at=updated.due_at,
-    )
-    dao.bump_daily_stats(minutes=2, accuracy=0.9, error_tag="flashcards")
-    return FlashcardReviewResponse(
-        trace_id=trace_id,
-        card_id=payload.card_id,
-        due_at=updated.due_at,
-        repetitions=updated.repetitions,
-        interval=updated.interval,
-        easiness=updated.easiness,
-    )
+        for card in cards
+    ]
+
+
+@router.post("/{card_id}/review", response_model=FlashcardReviewResponse)
+def review_flashcard(card_id: str, payload: FlashcardReviewRequest, db: Session = Depends(get_db)):
+    card = db.get(models.Flashcard, card_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Flashcard not found")
+    current_state = srs.CardState(reps=card.reps, interval=card.interval, ease=float(card.ease), due_at=card.due_at)
+    next_state = srs.next_review(current_state, payload.quality)
+    dao.update_flashcard_state(db, card, next_state.reps, next_state.interval, next_state.ease, next_state.due_at)
+    db.commit()
+    return FlashcardReviewResponse(id=card.id, due_at=card.due_at)
