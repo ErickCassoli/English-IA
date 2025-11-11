@@ -10,10 +10,10 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.main import app  # noqa: E402  (import after path mutation)
+from app.main import app  # noqa: E402
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def client() -> TestClient:
     with TestClient(app) as test_client:
         yield test_client
