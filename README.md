@@ -33,8 +33,9 @@ bandit -r app
 ```
 
 ### Ollama fallback
-If `OLLAMA_HOST` is unreachable, the LLM client returns a deterministic fallback JSON payload so the
-API remains testable.
+If the service is offline the API still responds thanks to deterministic fallbacks. When
+`OLLAMA_HOST` is unreachable, the LLM client returns a deterministic JSON payload so the API remains
+testable.
 
 ## Endpoints
 - `GET /healthz`
