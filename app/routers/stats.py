@@ -3,15 +3,21 @@ from __future__ import annotations
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from app.repo import dao
+from app.utils import ids
+
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 
 
 class StatsResponse(BaseModel):
-    last_7_days_minutes: int = 0
-    accuracy_estimate: float = 0.0
-    top_error_tags: list[str] = []
+    trace_id: str
+    last_7_days_minutes: int
+    accuracy_estimate: float
+    top_error_tags: list[str]
 
 
 @router.get("/summary", response_model=StatsResponse)
-async def get_summary() -> StatsResponse:
-    return StatsResponse()
+def get_summary() -> StatsResponse:
+    trace_id = ids.new_trace_id()
+    stats = dao.get_stats_summary()
+    return StatsResponse(trace_id=trace_id, **stats)
