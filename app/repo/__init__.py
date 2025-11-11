@@ -1,1 +1,1 @@
-"Persistence helpers and repositories."
+"""Database models and data-access helpers."""

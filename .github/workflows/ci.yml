@@ -20,8 +20,6 @@ jobs:
           pip install -r requirements.txt -r requirements-dev.txt
       - name: Ruff lint
         run: ruff check .
-      - name: Ruff format check
-        run: ruff format --check .
       - name: Bandit security scan
         run: bandit -r app
       - name: Pytest

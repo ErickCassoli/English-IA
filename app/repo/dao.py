@@ -1,240 +1,233 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta
-from typing import Any
+from datetime import UTC, datetime
+from typing import Sequence
 
-from app.repo import db
-from app.utils import ids
+from sqlalchemy import Select, func, select
+from sqlalchemy.orm import Session
+
+from app.repo import models
+from app.services.evaluation.errors import DetectedError
+from app.services.evaluation.quizgen import QuizPayload
+from app.utils.config import get_settings as get_runtime_settings
+
+DEFAULT_USER_NICKNAME = "Local Learner"
+runtime_settings = get_runtime_settings()
 
 
-def _utc_now() -> str:
-    return datetime.now(tz=UTC).isoformat()
+def ensure_default_user(db: Session) -> models.User:
+    user = db.execute(select(models.User).limit(1)).scalar_one_or_none()
+    if user:
+        return user
+    user = models.User(nickname=DEFAULT_USER_NICKNAME)
+    db.add(user)
+    db.flush()
+    return user
 
 
-def _today() -> str:
-    return datetime.now(tz=UTC).date().isoformat()
-
-
-def record_message(
-    trace_id: str,
-    user_input: str,
-    corrected: str,
-    metadata: dict[str, Any] | None,
-) -> None:
-    conn = db.get_connection()
-    conn.execute(
-        """
-        INSERT INTO messages (id, trace_id, user_input, corrected, metadata, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (
-            ids.new_id(),
-            trace_id,
-            user_input,
-            corrected,
-            json.dumps(metadata or {}),
-            _utc_now(),
-        ),
+def get_settings(db: Session) -> models.Settings:
+    settings = db.get(models.Settings, 1)
+    if settings:
+        return settings
+    settings = models.Settings(
+        id=1,
+        llm_provider=models.LLMProvider(runtime_settings.default_llm_provider),
+        llm_model=runtime_settings.default_llm_model,
     )
-    conn.commit()
+    db.add(settings)
+    db.flush()
+    return settings
 
 
-def record_error(trace_id: str, location: str, payload: dict[str, Any] | None, detail: str) -> None:
-    conn = db.get_connection()
-    conn.execute(
-        """
-        INSERT INTO errors (id, trace_id, location, payload, detail, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (
-            ids.new_id(),
-            trace_id,
-            location,
-            json.dumps(payload or {}),
-            detail,
-            _utc_now(),
-        ),
-    )
-    conn.commit()
+def update_settings(db: Session, provider: models.LLMProvider, llm_model: str) -> models.Settings:
+    settings = get_settings(db)
+    settings.llm_provider = provider
+    settings.llm_model = llm_model
+    settings.updated_at = datetime.now(tz=UTC)
+    db.add(settings)
+    db.flush()
+    return settings
 
 
-def create_quiz(trace_id: str, topic: str, difficulty: str, questions: list[dict[str, Any]]) -> str:
-    conn = db.get_connection()
-    quiz_id = ids.new_id()
-    now = _utc_now()
-    conn.execute(
-        """
-        INSERT INTO quizzes (id, trace_id, topic, difficulty, created_at)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (quiz_id, trace_id, topic, difficulty, now),
-    )
-    for question in questions:
-        conn.execute(
-            """
-            INSERT INTO quiz_items (id, quiz_id, prompt, options, answer, rationale, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                question["id"],
-                quiz_id,
-                question["prompt"],
-                json.dumps(question["options"]),
-                question["answer"],
-                question["rationale"],
-                now,
-            ),
+def create_session(db: Session, user: models.User, topic: str) -> models.Session:
+    session = models.Session(user=user, topic=topic or "random")
+    db.add(session)
+    db.flush()
+    return session
+
+
+def get_session(db: Session, session_id: str) -> models.Session | None:
+    return db.get(models.Session, session_id)
+
+
+def mark_session_finished(db: Session, session: models.Session) -> None:
+    session.status = models.SessionStatus.FINISHED
+    session.ended_at = datetime.now(tz=UTC)
+    db.add(session)
+
+
+def append_message(db: Session, session: models.Session, role: models.MessageRole, text: str) -> models.Message:
+    message = models.Message(session=session, role=role, text=text)
+    db.add(message)
+    db.flush()
+    return message
+
+
+def save_error_spans(db: Session, message: models.Message, errors: Sequence[DetectedError]) -> list[models.ErrorSpan]:
+    spans: list[models.ErrorSpan] = []
+    for error in errors:
+        span = models.ErrorSpan(
+            message=message,
+            start=error.start,
+            end=error.end,
+            category=error.category,
+            user_text=error.user_text,
+            corrected_text=error.corrected_text,
+            note=error.note,
         )
-    conn.commit()
-    return quiz_id
+        db.add(span)
+        spans.append(span)
+    db.flush()
+    return spans
 
 
-def get_quiz(quiz_id: str) -> dict[str, Any] | None:
-    conn = db.get_connection()
-    quiz = conn.execute(
-        "SELECT id, trace_id, topic, difficulty FROM quizzes WHERE id = ?",
-        (quiz_id,),
-    ).fetchone()
-    if not quiz:
-        return None
-    rows = conn.execute(
-        "SELECT id, prompt, options, answer, rationale FROM quiz_items WHERE quiz_id = ?",
-        (quiz_id,),
-    ).fetchall()
-    questions = [
-        {
-            "id": row["id"],
-            "prompt": row["prompt"],
-            "options": json.loads(row["options"]),
-            "answer": row["answer"],
-            "rationale": row["rationale"],
-        }
-        for row in rows
-    ]
-    return {
-        "id": quiz["id"],
-        "trace_id": quiz["trace_id"],
-        "topic": quiz["topic"],
-        "difficulty": quiz["difficulty"],
-        "questions": questions,
-    }
-
-
-def ensure_flashcard(front: str, back: str, tag: str | None = None) -> str:
-    conn = db.get_connection()
-    row = conn.execute(
-        "SELECT id FROM flashcards WHERE front = ? AND back = ?",
-        (front, back),
-    ).fetchone()
-    if row:
-        return row["id"]
-    card_id = ids.new_id()
-    now = _utc_now()
-    conn.execute(
-        """
-        INSERT INTO flashcards (
-            id,
-            front,
-            back,
-            tag,
-            repetitions,
-            interval,
-            easiness,
-            due_at,
-            created_at
-        )
-        VALUES (?, ?, ?, ?, 0, 0, 2.5, ?, ?)
-        """,
-        (card_id, front, back, tag, now, now),
+def list_session_messages(db: Session, session_id: str) -> list[models.Message]:
+    stmt: Select[tuple[models.Message]] = (
+        select(models.Message).where(models.Message.session_id == session_id).order_by(models.Message.ts.asc())
     )
-    conn.commit()
-    return card_id
+    return list(db.scalars(stmt))
 
 
-def get_flashcards_due(limit: int = 10) -> list[dict[str, Any]]:
-    conn = db.get_connection()
-    rows = conn.execute(
-        """
-        SELECT id, front, back, tag, repetitions, interval, easiness, due_at
-        FROM flashcards
-        WHERE due_at <= ?
-        ORDER BY due_at ASC
-        LIMIT ?
-        """,
-        (_utc_now(), limit),
-    ).fetchall()
-    return [dict(row) for row in rows]
+def list_session_errors(db: Session, session_id: str) -> list[models.ErrorSpan]:
+    stmt: Select[tuple[models.ErrorSpan]] = (
+        select(models.ErrorSpan)
+        .join(models.Message)
+        .where(models.Message.session_id == session_id)
+        .order_by(models.ErrorSpan.id.asc())
+    )
+    return list(db.scalars(stmt))
+
+
+def create_quizzes(db: Session, session: models.Session, items: Sequence[QuizPayload]) -> list[models.Quiz]:
+    quizzes: list[models.Quiz] = []
+    for item in items:
+        encoded = json.dumps({"choices": item.choices, "source_error_id": item.source_error_id})
+        quiz = models.Quiz(
+            session=session,
+            type=item.type,
+            prompt=item.prompt,
+            choices_json=encoded,
+            answer=item.answer,
+        )
+        db.add(quiz)
+        quizzes.append(quiz)
+    db.flush()
+    return quizzes
+
+
+def list_quizzes_by_session(db: Session, session_id: str) -> list[models.Quiz]:
+    stmt = select(models.Quiz).where(models.Quiz.session_id == session_id).order_by(models.Quiz.created_at.asc())
+    return list(db.scalars(stmt))
+
+
+def get_quiz(db: Session, quiz_id: str) -> models.Quiz | None:
+    return db.get(models.Quiz, quiz_id)
+
+
+def record_quiz_attempt(db: Session, quiz: models.Quiz, user: models.User, is_correct: bool, latency_ms: int):
+    attempt = models.QuizAttempt(quiz=quiz, user=user, is_correct=is_correct, latency_ms=latency_ms)
+    db.add(attempt)
+    db.flush()
+    return attempt
+
+
+def ensure_flashcard_from_error(
+    db: Session, error: models.ErrorSpan, front: str, back: str
+) -> tuple[models.Flashcard, bool]:
+    stmt = select(models.Flashcard).where(models.Flashcard.source_error_id == error.id).limit(1)
+    card = db.execute(stmt).scalar_one_or_none()
+    if card:
+        return card, False
+    card = models.Flashcard(front=front, back=back, source_error=error)
+    db.add(card)
+    db.flush()
+    return card, True
+
+
+def list_flashcards_due(db: Session, limit: int = 20) -> list[models.Flashcard]:
+    stmt = (
+        select(models.Flashcard)
+        .where(models.Flashcard.due_at <= datetime.now(tz=UTC))
+        .order_by(models.Flashcard.due_at.asc())
+        .limit(limit)
+    )
+    return list(db.scalars(stmt))
 
 
 def update_flashcard_state(
-    card_id: str,
-    repetitions: int,
-    interval: int,
-    easiness: float,
-    due_at: datetime,
-) -> None:
-    conn = db.get_connection()
-    conn.execute(
-        """
-        UPDATE flashcards
-        SET repetitions = ?, interval = ?, easiness = ?, due_at = ?
-        WHERE id = ?
-        """,
-        (repetitions, interval, easiness, due_at.isoformat(), card_id),
+    db: Session, card: models.Flashcard, reps: int, interval: int, ease: float, due_at: datetime
+) -> models.Flashcard:
+    card.reps = reps
+    card.interval = interval
+    card.ease = ease
+    card.due_at = due_at
+    db.add(card)
+    db.flush()
+    return card
+
+
+def record_metric_snapshot(
+    db: Session,
+    user: models.User,
+    session: models.Session,
+    words: int,
+    errors: int,
+    accuracy_pct: float,
+    cefr: models.CEFRLevel,
+) -> models.MetricSnapshot:
+    snapshot = models.MetricSnapshot(
+        user=user,
+        session=session,
+        words=words,
+        errors=errors,
+        accuracy_pct=accuracy_pct,
+        cefr_estimate=cefr,
     )
-    conn.commit()
+    db.add(snapshot)
+    db.flush()
+    return snapshot
 
 
-def bump_daily_stats(minutes: int, accuracy: float, error_tag: str | None = None) -> None:
-    conn = db.get_connection()
-    today = _today()
-    row = conn.execute(
-        "SELECT minutes, accuracy, errors FROM stats_daily WHERE date = ?",
-        (today,),
-    ).fetchone()
-    if row:
-        total_minutes = row["minutes"] + minutes
-        avg_accuracy = (row["accuracy"] + accuracy) / 2
-        errors = json.loads(row["errors"] or "[]")
-    else:
-        total_minutes = minutes
-        avg_accuracy = accuracy
-        errors = []
-    if error_tag:
-        errors.append(error_tag)
-    conn.execute(
-        """
-        INSERT INTO stats_daily (date, minutes, accuracy, errors)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(date) DO UPDATE SET
-            minutes = excluded.minutes,
-            accuracy = excluded.accuracy,
-            errors = excluded.errors
-        """,
-        (today, total_minutes, avg_accuracy, json.dumps(errors)),
+def get_dashboard_summary(db: Session):
+    last_session_stmt = (
+        select(models.Session)
+        .where(models.Session.ended_at.is_not(None))
+        .order_by(models.Session.ended_at.desc())
+        .limit(1)
     )
-    conn.commit()
+    last_session = db.execute(last_session_stmt).scalar_one_or_none()
 
+    sessions_total = db.scalar(select(func.count(models.Session.id))) or 0
+    quizzes_total = db.scalar(select(func.count(models.Quiz.id))) or 0
+    flashcards_total = db.scalar(select(func.count(models.Flashcard.id))) or 0
+    due_count = (
+        db.scalar(
+            select(func.count(models.Flashcard.id)).where(models.Flashcard.due_at <= datetime.now(tz=UTC))
+        )
+        or 0
+    )
 
-def get_stats_summary() -> dict[str, Any]:
-    conn = db.get_connection()
-    seven_days_ago = datetime.now(tz=UTC).date() - timedelta(days=6)
-    rows = conn.execute(
-        "SELECT minutes, accuracy, errors FROM stats_daily WHERE date >= ?",
-        (seven_days_ago.isoformat(),),
-    ).fetchall()
-    minutes = sum(row["minutes"] for row in rows)
-    accuracy_values = [row["accuracy"] for row in rows if row["accuracy"]]
-    accuracy = round(sum(accuracy_values) / len(accuracy_values), 2) if accuracy_values else 0.0
-    tag_counter: dict[str, int] = {}
-    for row in rows:
-        tags = json.loads(row["errors"] or "[]")
-        for tag in tags:
-            tag_counter[tag] = tag_counter.get(tag, 0) + 1
-    top_tags = sorted(tag_counter, key=tag_counter.get, reverse=True)[:3]
     return {
-        "last_7_days_minutes": minutes,
-        "accuracy_estimate": accuracy,
-        "top_error_tags": top_tags,
+        "last_session": {
+            "id": last_session.id if last_session else None,
+            "topic": last_session.topic if last_session else None,
+            "ended_at": last_session.ended_at.isoformat() if last_session and last_session.ended_at else None,
+        },
+        "totals": {
+            "sessions": sessions_total,
+            "quizzes": quizzes_total,
+            "flashcards": flashcards_total,
+        },
+        "due_count": due_count,
     }

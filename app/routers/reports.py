@@ -1,0 +1,22 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.repo import dao
+from app.repo.db import get_db
+from app.schemas.report import ReportResponse
+from app.services.evaluation import report as report_service
+
+router = APIRouter(prefix="/api/reports", tags=["reports"])
+
+
+@router.get("/{session_id}", response_model=ReportResponse)
+def get_report(session_id: str, db: Session = Depends(get_db)):
+    session = dao.get_session(db, session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    messages = dao.list_session_messages(db, session_id)
+    errors = dao.list_session_errors(db, session_id)
+    data = report_service.build_report(messages, errors)
+    return ReportResponse(**data)

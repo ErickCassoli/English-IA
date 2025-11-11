@@ -1,1 +1,1 @@
-"Service layer for prompts, LLM calls, SRS, and TTS."
+"""Service-layer helpers for LLM access and evaluation."""
