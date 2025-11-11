@@ -13,7 +13,7 @@ class JsonFormatter(logging.Formatter):
             "message": record.getMessage(),
         }
         if hasattr(record, "trace_id"):
-            payload["trace_id"] = getattr(record, "trace_id")
+            payload["trace_id"] = record.trace_id
         if record.exc_info:
             payload["exc_info"] = self.formatException(record.exc_info)
         return json.dumps(payload)

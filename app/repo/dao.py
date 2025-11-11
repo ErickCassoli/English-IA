@@ -16,7 +16,12 @@ def _today() -> str:
     return datetime.now(tz=UTC).date().isoformat()
 
 
-def record_message(trace_id: str, user_input: str, corrected: str, metadata: dict[str, Any] | None) -> None:
+def record_message(
+    trace_id: str,
+    user_input: str,
+    corrected: str,
+    metadata: dict[str, Any] | None,
+) -> None:
     conn = db.get_connection()
     conn.execute(
         """
@@ -128,7 +133,17 @@ def ensure_flashcard(front: str, back: str, tag: str | None = None) -> str:
     now = _utc_now()
     conn.execute(
         """
-        INSERT INTO flashcards (id, front, back, tag, repetitions, interval, easiness, due_at, created_at)
+        INSERT INTO flashcards (
+            id,
+            front,
+            back,
+            tag,
+            repetitions,
+            interval,
+            easiness,
+            due_at,
+            created_at
+        )
         VALUES (?, ?, ?, ?, 0, 0, 2.5, ?, ?)
         """,
         (card_id, front, back, tag, now, now),
@@ -152,7 +167,13 @@ def get_flashcards_due(limit: int = 10) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
 
 
-def update_flashcard_state(card_id: str, repetitions: int, interval: int, easiness: float, due_at: datetime) -> None:
+def update_flashcard_state(
+    card_id: str,
+    repetitions: int,
+    interval: int,
+    easiness: float,
+    due_at: datetime,
+) -> None:
     conn = db.get_connection()
     conn.execute(
         """
@@ -168,7 +189,10 @@ def update_flashcard_state(card_id: str, repetitions: int, interval: int, easine
 def bump_daily_stats(minutes: int, accuracy: float, error_tag: str | None = None) -> None:
     conn = db.get_connection()
     today = _today()
-    row = conn.execute("SELECT minutes, accuracy, errors FROM stats_daily WHERE date = ?", (today,)).fetchone()
+    row = conn.execute(
+        "SELECT minutes, accuracy, errors FROM stats_daily WHERE date = ?",
+        (today,),
+    ).fetchone()
     if row:
         total_minutes = row["minutes"] + minutes
         avg_accuracy = (row["accuracy"] + accuracy) / 2

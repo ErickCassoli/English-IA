@@ -14,7 +14,7 @@ settings = get_settings()
 
 
 @asynccontextmanager
-def lifespan(_: FastAPI):
+async def lifespan(_: FastAPI):
     init_db()
     yield
 

@@ -25,7 +25,7 @@ class Settings(BaseModel):
     )
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls) -> Settings:
         data = {
             "environment": os.getenv("ENVIRONMENT", "local"),
             "ollama_host": os.getenv("OLLAMA_HOST", "http://localhost:11434"),
@@ -34,7 +34,9 @@ class Settings(BaseModel):
         }
         origins = os.getenv("ALLOWED_ORIGINS")
         if origins:
-            data["allowed_origins"] = [origin.strip() for origin in origins.split(",") if origin.strip()]
+            data["allowed_origins"] = [
+                origin.strip() for origin in origins.split(",") if origin.strip()
+            ]
         return cls(**data)
 
 

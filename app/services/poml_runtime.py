@@ -63,5 +63,8 @@ def load_prompt(name: str) -> PromptTemplate:
 
 def render_prompt(name: str, variables: dict[str, Any]) -> str:
     prompt = load_prompt(name)
-    log.debug("rendering prompt", extra={"trace_id": variables.get("trace_id", "poml"), "prompt": name})
+    log.debug(
+        "rendering prompt",
+        extra={"trace_id": variables.get("trace_id", "poml"), "prompt": name},
+    )
     return prompt.render(variables)

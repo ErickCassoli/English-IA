@@ -62,11 +62,20 @@ async def correct_message(payload: ChatRequest) -> ChatResponse:
             corrected=parsed.corrected,
             metadata={"tags": parsed.tags, "focus": payload.focus},
         )
-        dao.bump_daily_stats(minutes=3, accuracy=0.8, error_tag=(parsed.tags[0] if parsed.tags else None))
+        dao.bump_daily_stats(
+            minutes=3,
+            accuracy=0.8,
+            error_tag=(parsed.tags[0] if parsed.tags else None),
+        )
         return ChatResponse(trace_id=trace_id, **parsed.model_dump())
     except HTTPException:
         raise
     except Exception as exc:  # pragma: no cover - defensive logging
-        dao.record_error(trace_id=trace_id, location="chat.correct", payload=payload.model_dump(), detail=str(exc))
+        dao.record_error(
+            trace_id=trace_id,
+            location="chat.correct",
+            payload=payload.model_dump(),
+            detail=str(exc),
+        )
         log.error("chat correction failed", extra={"trace_id": trace_id, "error": str(exc)})
         raise HTTPException(status_code=500, detail="Chat correction failed") from exc

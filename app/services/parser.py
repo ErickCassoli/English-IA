@@ -13,7 +13,10 @@ def parse_contract(raw: str, model: type[T]) -> T:
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:  # pragma: no cover - defensive
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
     try:
         return model.model_validate(payload)
     except ValidationError as exc:

@@ -128,4 +128,9 @@ def answer_quiz(payload: QuizAnswerRequest) -> QuizAnswerResponse:
     total = len(quiz["questions"])
     score = round(correct / total, 2) if total else 0.0
     dao.bump_daily_stats(minutes=5, accuracy=score, error_tag="quiz")
-    return QuizAnswerResponse(trace_id=trace_id, quiz_id=payload.quiz_id, score=score, details=details)
+    return QuizAnswerResponse(
+        trace_id=trace_id,
+        quiz_id=payload.quiz_id,
+        score=score,
+        details=details,
+    )

@@ -49,7 +49,10 @@ def review_card(payload: FlashcardReviewRequest) -> FlashcardReviewResponse:
     cards = {card["id"]: card for card in dao.get_flashcards_due(limit=100)}
     card = cards.get(payload.card_id)
     if not card:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Flashcard not due or missing")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Flashcard not due or missing",
+        )
     state = srs.CardState(
         repetitions=card["repetitions"],
         interval=card["interval"],
