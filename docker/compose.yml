@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    env_file:
+      - ../.env.example
+    environment:
+      DB_URL: sqlite:////app/data/english_ia.db
+    volumes:
+      - english-ia-data:/app/data
+    ports:
+      - "8000:8000"
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+    environment:
+      API_URL: http://api:8000
+    depends_on:
+      - api
+    ports:
+      - "8501:8501"
+
+volumes:
+  english-ia-data:

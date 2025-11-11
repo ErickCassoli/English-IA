@@ -1,0 +1,10 @@
+{
+  "$schema": "https://github.com/googleapis/release-please/raw/main/schemas/config.json",
+  "release-type": "python",
+  "bump-minor-pre-major": true,
+  "packages": {
+    ".": {
+      "package-name": "english-ia"
+    }
+  }
+}

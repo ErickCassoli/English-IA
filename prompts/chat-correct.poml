@@ -1,0 +1,33 @@
+<prompt id="chat-correct" version="1.0">
+  <meta>
+    <description>Return corrected learner messages with reasoning and highlights.</description>
+  </meta>
+  <variables>
+    <var name="message" required="true" />
+    <var name="learner_level" required="false" default="B1" />
+    <var name="focus_tags" required="false" default="general fluency" />
+  </variables>
+  <template><![CDATA[
+You are an encouraging English coach working with a learner at level {{learner_level}} focusing on {{focus_tags}}.
+Correct the learner's message while preserving intent, then return JSON only.
+
+Learner message:
+{{message}}
+
+Respond strictly with the JSON contract defined below.
+]]></template>
+  <output><![CDATA[
+{
+  "corrected": "string",
+  "explanation": "string",
+  "highlights": [
+    {
+      "from_index": 0,
+      "to_index": 0,
+      "note": "string"
+    }
+  ],
+  "tags": ["string"]
+}
+]]></output>
+</prompt>

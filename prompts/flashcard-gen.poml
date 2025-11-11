@@ -1,0 +1,29 @@
+<prompt id="flashcard-gen" version="1.0">
+  <meta>
+    <description>Produce lightweight flashcards for drilling vocabulary or grammar.</description>
+  </meta>
+  <variables>
+    <var name="context" required="true" />
+    <var name="goal" required="false" default="general practice" />
+  </variables>
+  <template><![CDATA[
+Create targeted flashcards for the following context:
+{{context}}
+
+Learning goal: {{goal}}
+
+Return flashcards as JSON only.
+]]></template>
+  <output><![CDATA[
+{
+  "flashcards": [
+    {
+      "id": "string",
+      "front": "string",
+      "back": "string",
+      "tag": "string"
+    }
+  ]
+}
+]]></output>
+</prompt>

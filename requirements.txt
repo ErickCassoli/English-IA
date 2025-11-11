@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+pydantic
+python-dotenv
+apscheduler
+httpx
+faiss-cpu
+streamlit
+email-validator
+defusedxml
