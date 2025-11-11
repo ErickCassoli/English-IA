@@ -10,9 +10,7 @@ async def _fake_generate(*_, **__):
         {
             "corrected": "Hello there!",
             "explanation": "Capitalization fix",
-            "highlights": [
-                {"from_index": 0, "to_index": 5, "note": "Greeting"}
-            ],
+            "highlights": [{"from_index": 0, "to_index": 5, "note": "Greeting"}],
             "tags": ["mechanics"],
         }
     )
