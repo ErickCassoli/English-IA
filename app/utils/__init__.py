@@ -1,1 +1,1 @@
-"""Utility helpers for configuration, logging, and identifiers."""
+"Utility helpers for configuration, logging, and identifiers."

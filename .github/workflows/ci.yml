@@ -2,8 +2,9 @@ name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "feat/*", "fix/*", "chore/*", "docs/*"]
   pull_request:
+    branches: ["main"]
 
 jobs:
   build:
@@ -21,11 +22,7 @@ jobs:
         run: ruff check .
       - name: Ruff format check
         run: ruff format --check .
-      - name: Bandit
+      - name: Bandit security scan
         run: bandit -r app
-      - name: Pytest with coverage
-        run: pytest --cov=app --cov-report=xml --cov-report=term
-      - name: Coverage summary
-        run: |
-          echo "### Coverage Report" >> $GITHUB_STEP_SUMMARY
-          coverage report >> $GITHUB_STEP_SUMMARY
+      - name: Pytest
+        run: pytest -q

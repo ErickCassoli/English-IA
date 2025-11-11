@@ -1,26 +1,24 @@
 <prompt id="call-coach" version="1.0">
   <meta>
-    <description>Simulate a concise phone call coaching reply.</description>
+    <description>Simulate a brief call-style coaching response.</description>
   </meta>
   <variables>
     <var name="transcript" required="true" />
-    <var name="focus" required="false" default="fluency" />
+    <var name="level" required="false" default="B1" />
+    <var name="topic" required="false" default="conversation" />
   </variables>
   <template><![CDATA[
-You are role-playing a brief call with a learner. Provide a concise reply, two actionable tips, and focus tags for follow-up drills.
-
-Transcript snippet:
-{{transcript}}
-
-Focus area: {{focus}}
-
-Respond only with JSON defined below.
-]]></template>
+You are speaking with a learner over a short call. Provide a supportive reply, two actionable tips, and focus tags.
+Learner transcript: {{transcript}}
+Level: {{level}}
+Topic: {{topic}}
+Return strict JSON.
+  ]]></template>
   <output><![CDATA[
 {
   "reply": "string",
   "tips": ["string"],
   "focus_tags": ["string"]
 }
-]]></output>
+  ]]></output>
 </prompt>

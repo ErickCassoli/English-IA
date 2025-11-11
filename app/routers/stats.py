@@ -11,11 +11,9 @@ router = APIRouter(prefix="/api/stats", tags=["stats"])
 
 class StatsResponse(BaseModel):
     trace_id: str
-    chats: int
-    quizzes: int
-    flashcards: int
-    flashcards_due: int
-    total_flashcards: int
+    last_7_days_minutes: int
+    accuracy_estimate: float
+    top_error_tags: list[str]
 
 
 @router.get("/summary", response_model=StatsResponse)

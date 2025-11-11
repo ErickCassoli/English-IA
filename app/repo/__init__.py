@@ -1,1 +1,1 @@
-"""Persistence helpers for English IA."""
+"Persistence helpers and repositories."

@@ -1,17 +1,17 @@
 <prompt id="quiz-gen" version="1.0">
   <meta>
-    <description>Create multiple-choice quiz questions for targeted practice.</description>
+    <description>Produce multiple-choice quizzes.</description>
   </meta>
   <variables>
     <var name="topic" required="true" />
-    <var name="num_questions" required="true" />
-    <var name="learner_level" required="false" default="B1" />
+    <var name="difficulty" required="false" default="B1" />
+    <var name="questions" required="true" />
   </variables>
   <template><![CDATA[
-You are preparing English quiz questions for topic "{{topic}}" aimed at learners level {{learner_level}}.
-Generate {{num_questions}} multiple-choice questions with 3-4 options.
-Return only JSON following the contract below. IDs must be unique strings.
-]]></template>
+Create {{questions}} concise multiple-choice questions about {{topic}} for difficulty {{difficulty}}.
+Each question must have 3-4 options with one correct answer and a brief rationale.
+Return JSON only.
+  ]]></template>
   <output><![CDATA[
 {
   "questions": [
@@ -24,5 +24,5 @@ Return only JSON following the contract below. IDs must be unique strings.
     }
   ]
 }
-]]></output>
+  ]]></output>
 </prompt>

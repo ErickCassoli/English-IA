@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.repo import db
@@ -12,7 +12,11 @@ def _utc_now() -> str:
     return datetime.now(tz=UTC).isoformat()
 
 
-def record_chat_message(
+def _today() -> str:
+    return datetime.now(tz=UTC).date().isoformat()
+
+
+def record_message(
     trace_id: str,
     user_input: str,
     corrected: str,
@@ -34,28 +38,37 @@ def record_chat_message(
         ),
     )
     conn.commit()
-    _bump_stat("chats")
 
 
 def record_error(trace_id: str, location: str, payload: dict[str, Any] | None, detail: str) -> None:
     conn = db.get_connection()
     conn.execute(
         """
-        INSERT INTO prompt_errors (id, trace_id, location, payload, detail, created_at)
+        INSERT INTO errors (id, trace_id, location, payload, detail, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (ids.new_id(), trace_id, location, json.dumps(payload or {}), detail, _utc_now()),
+        (
+            ids.new_id(),
+            trace_id,
+            location,
+            json.dumps(payload or {}),
+            detail,
+            _utc_now(),
+        ),
     )
     conn.commit()
 
 
-def create_quiz(trace_id: str, topic: str, questions: list[dict[str, Any]]) -> str:
+def create_quiz(trace_id: str, topic: str, difficulty: str, questions: list[dict[str, Any]]) -> str:
     conn = db.get_connection()
     quiz_id = ids.new_id()
     now = _utc_now()
     conn.execute(
-        "INSERT INTO quizzes (id, trace_id, topic, created_at) VALUES (?, ?, ?, ?)",
-        (quiz_id, trace_id, topic, now),
+        """
+        INSERT INTO quizzes (id, trace_id, topic, difficulty, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (quiz_id, trace_id, topic, difficulty, now),
     )
     for question in questions:
         conn.execute(
@@ -74,14 +87,13 @@ def create_quiz(trace_id: str, topic: str, questions: list[dict[str, Any]]) -> s
             ),
         )
     conn.commit()
-    _bump_stat("quizzes")
     return quiz_id
 
 
 def get_quiz(quiz_id: str) -> dict[str, Any] | None:
     conn = db.get_connection()
     quiz = conn.execute(
-        "SELECT id, trace_id, topic FROM quizzes WHERE id = ?",
+        "SELECT id, trace_id, topic, difficulty FROM quizzes WHERE id = ?",
         (quiz_id,),
     ).fetchone()
     if not quiz:
@@ -101,9 +113,10 @@ def get_quiz(quiz_id: str) -> dict[str, Any] | None:
         for row in rows
     ]
     return {
-        "id": quiz_id,
+        "id": quiz["id"],
         "trace_id": quiz["trace_id"],
         "topic": quiz["topic"],
+        "difficulty": quiz["difficulty"],
         "questions": questions,
     }
 
@@ -141,7 +154,6 @@ def ensure_flashcard(front: str, back: str, tag: str | None = None) -> str:
 
 def get_flashcards_due(limit: int = 10) -> list[dict[str, Any]]:
     conn = db.get_connection()
-    now = _utc_now()
     rows = conn.execute(
         """
         SELECT id, front, back, tag, repetitions, interval, easiness, due_at
@@ -150,40 +162,12 @@ def get_flashcards_due(limit: int = 10) -> list[dict[str, Any]]:
         ORDER BY due_at ASC
         LIMIT ?
         """,
-        (now, limit),
+        (_utc_now(), limit),
     ).fetchall()
-    return [
-        {
-            "id": row["id"],
-            "front": row["front"],
-            "back": row["back"],
-            "tag": row["tag"],
-            "repetitions": row["repetitions"],
-            "interval": row["interval"],
-            "easiness": row["easiness"],
-            "due_at": row["due_at"],
-        }
-        for row in rows
-    ]
-
-
-def get_flashcard(card_id: str) -> dict[str, Any] | None:
-    conn = db.get_connection()
-    row = conn.execute(
-        """
-        SELECT id, front, back, tag, repetitions, interval, easiness, due_at
-        FROM flashcards
-        WHERE id = ?
-        """,
-        (card_id,),
-    ).fetchone()
-    if not row:
-        return None
-    return dict(row)
+    return [dict(row) for row in rows]
 
 
 def update_flashcard_state(
-    *,
     card_id: str,
     repetitions: int,
     interval: int,
@@ -200,80 +184,57 @@ def update_flashcard_state(
         (repetitions, interval, easiness, due_at.isoformat(), card_id),
     )
     conn.commit()
-    _bump_stat("flashcards")
 
 
-def get_stats_summary() -> dict[str, int]:
+def bump_daily_stats(minutes: int, accuracy: float, error_tag: str | None = None) -> None:
     conn = db.get_connection()
-    totals = conn.execute(
-        """
-        SELECT
-            COALESCE(SUM(chats), 0) AS chats,
-            COALESCE(SUM(quizzes), 0) AS quizzes,
-            COALESCE(SUM(flashcards), 0) AS flashcards
-        FROM stats_daily
-        """
+    today = _today()
+    row = conn.execute(
+        "SELECT minutes, accuracy, errors FROM stats_daily WHERE date = ?",
+        (today,),
     ).fetchone()
-    flashcards_due = conn.execute(
-        "SELECT COUNT(*) AS due FROM flashcards WHERE due_at <= ?",
-        (_utc_now(),),
-    ).fetchone()
-    flashcards_total = conn.execute("SELECT COUNT(*) AS total FROM flashcards").fetchone()
-    return {
-        "chats": totals["chats"],
-        "quizzes": totals["quizzes"],
-        "flashcards": totals["flashcards"],
-        "flashcards_due": flashcards_due["due"],
-        "total_flashcards": flashcards_total["total"],
-    }
-
-
-def create_user(*, email: str, password_hash: str, display_name: str) -> dict[str, Any]:
-    conn = db.get_connection()
-    user_id = ids.new_id()
-    now = _utc_now()
+    if row:
+        total_minutes = row["minutes"] + minutes
+        avg_accuracy = (row["accuracy"] + accuracy) / 2
+        errors = json.loads(row["errors"] or "[]")
+    else:
+        total_minutes = minutes
+        avg_accuracy = accuracy
+        errors = []
+    if error_tag:
+        errors.append(error_tag)
     conn.execute(
         """
-        INSERT INTO users (id, email, password_hash, display_name, created_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO stats_daily (date, minutes, accuracy, errors)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(date) DO UPDATE SET
+            minutes = excluded.minutes,
+            accuracy = excluded.accuracy,
+            errors = excluded.errors
         """,
-        (user_id, email, password_hash, display_name, now),
+        (today, total_minutes, avg_accuracy, json.dumps(errors)),
     )
     conn.commit()
-    return {"id": user_id, "email": email, "display_name": display_name}
 
 
-def get_user_by_email(email: str) -> dict[str, Any] | None:
+def get_stats_summary() -> dict[str, Any]:
     conn = db.get_connection()
-    row = conn.execute(
-        "SELECT id, email, password_hash, display_name FROM users WHERE email = ?",
-        (email,),
-    ).fetchone()
-    if not row:
-        return None
-    return dict(row)
-
-
-def _bump_stat(kind: str) -> None:
-    statements = {
-        "chats": """
-            INSERT INTO stats_daily (date, chats, quizzes, flashcards)
-            VALUES (?, 0, 0, 0)
-            ON CONFLICT(date) DO UPDATE SET chats = stats_daily.chats + 1
-            """,
-        "quizzes": """
-            INSERT INTO stats_daily (date, chats, quizzes, flashcards)
-            VALUES (?, 0, 0, 0)
-            ON CONFLICT(date) DO UPDATE SET quizzes = stats_daily.quizzes + 1
-            """,
-        "flashcards": """
-            INSERT INTO stats_daily (date, chats, quizzes, flashcards)
-            VALUES (?, 0, 0, 0)
-            ON CONFLICT(date) DO UPDATE SET flashcards = stats_daily.flashcards + 1
-            """,
+    seven_days_ago = datetime.now(tz=UTC).date() - timedelta(days=6)
+    rows = conn.execute(
+        "SELECT minutes, accuracy, errors FROM stats_daily WHERE date >= ?",
+        (seven_days_ago.isoformat(),),
+    ).fetchall()
+    minutes = sum(row["minutes"] for row in rows)
+    accuracy_values = [row["accuracy"] for row in rows if row["accuracy"]]
+    accuracy = round(sum(accuracy_values) / len(accuracy_values), 2) if accuracy_values else 0.0
+    tag_counter: dict[str, int] = {}
+    for row in rows:
+        tags = json.loads(row["errors"] or "[]")
+        for tag in tags:
+            tag_counter[tag] = tag_counter.get(tag, 0) + 1
+    top_tags = sorted(tag_counter, key=tag_counter.get, reverse=True)[:3]
+    return {
+        "last_7_days_minutes": minutes,
+        "accuracy_estimate": accuracy,
+        "top_error_tags": top_tags,
     }
-    query = statements[kind]
-    conn = db.get_connection()
-    today = date.today().isoformat()
-    conn.execute(query, (today,))
-    conn.commit()
