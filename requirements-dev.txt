@@ -3,5 +3,4 @@ pytest-cov
 ruff
 bandit
 pre-commit
-requests
-typing-extensions
+black
