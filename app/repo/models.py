@@ -63,6 +63,17 @@ class User(Base):
     sessions: Mapped[List["Session"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
+class PracticeTopic(Base):
+    __tablename__ = "practice_topics"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    label: Mapped[str] = mapped_column(String(64), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+
+    sessions: Mapped[List["Session"]] = relationship(back_populates="topic")
+
+
 class Settings(Base):
     __tablename__ = "settings"
 
@@ -79,14 +90,16 @@ class Session(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
-    topic: Mapped[str] = mapped_column(String(128), nullable=False)
+    topic_code: Mapped[str] = mapped_column(ForeignKey("practice_topics.code"), nullable=False)
     status: Mapped[SessionStatus] = mapped_column(
         SQLEnum(SessionStatus), default=SessionStatus.ACTIVE, nullable=False
     )
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    system_prompt: Mapped[str] = mapped_column(Text, nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="sessions")
+    topic: Mapped["PracticeTopic"] = relationship(back_populates="sessions")
     messages: Mapped[List["Message"]] = relationship(
         back_populates="session", cascade="all, delete-orphan", order_by="Message.ts"
     )

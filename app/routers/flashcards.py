@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.repo import dao, models
 from app.repo.db import get_db
 from app.schemas.flashcard import (
+    FlashcardManualCreateRequest,
     FlashcardReviewRequest,
     FlashcardReviewResponse,
     FlashcardSchema,
@@ -42,3 +43,22 @@ def review_flashcard(card_id: str, payload: FlashcardReviewRequest, db: Session 
     dao.update_flashcard_state(db, card, next_state.reps, next_state.interval, next_state.ease, next_state.due_at)
     db.commit()
     return FlashcardReviewResponse(id=card.id, due_at=card.due_at)
+
+
+@router.post("/manual", response_model=FlashcardSchema, status_code=201)
+def create_manual_flashcard(payload: FlashcardManualCreateRequest, db: Session = Depends(get_db)):
+    front = payload.front.strip()
+    back = payload.back.strip()
+    if not front or not back:
+        raise HTTPException(status_code=400, detail="front and back are required")
+    card = dao.create_manual_flashcard(db, front, back)
+    db.commit()
+    return FlashcardSchema(
+        id=card.id,
+        front=card.front,
+        back=card.back,
+        due_at=card.due_at,
+        reps=card.reps,
+        interval=card.interval,
+        ease=float(card.ease),
+    )

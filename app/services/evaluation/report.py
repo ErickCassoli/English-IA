@@ -3,11 +3,11 @@ from __future__ import annotations
 from collections import Counter
 from typing import Sequence
 
-from app.repo.models import CEFRLevel, ErrorSpan, Message
+from app.repo.models import CEFRLevel, ErrorSpan, Message, MessageRole
 
 
 def _count_words(messages: Sequence[Message]) -> int:
-    return sum(len(msg.text.split()) for msg in messages if msg.text)
+    return sum(len(msg.text.split()) for msg in messages if msg.text and msg.role == MessageRole.USER)
 
 
 def _accuracy(words: int, errors: int) -> float:
@@ -26,7 +26,7 @@ def _cefr_from_accuracy(value: float) -> CEFRLevel:
     return CEFRLevel.A2
 
 
-def build_report(messages: Sequence[Message], errors: Sequence[ErrorSpan]) -> dict:
+def build_report(topic_label: str, messages: Sequence[Message], errors: Sequence[ErrorSpan]) -> dict:
     words = _count_words(messages)
     error_count = len(errors)
     accuracy = _accuracy(words, error_count)
@@ -41,19 +41,30 @@ def build_report(messages: Sequence[Message], errors: Sequence[ErrorSpan]) -> di
         improvements.append("Focus on clarity by revising key corrections provided.")
     if category_counts.get("fluency"):
         improvements.append("Link short sentences to improve fluency.")
+    if category_counts:
+        for category, _ in category_counts.most_common(2):
+            improvements.append(f"Revisit {category} patterns shown in corrections.")
     if not improvements:
         improvements.append("Keep expanding vocabulary with targeted drills.")
 
     examples = [
-        {"from": error.user_text, "to": error.corrected_text, "note": error.note}
+        {"source": error.user_text, "target": error.corrected_text, "note": error.note}
         for error in errors[:3]
     ]
 
+    summary = (
+        f"You practiced {topic_label.lower()} and produced {words} words with ~{accuracy}% accuracy. "
+        f"Estimated CEFR: {cefr.value}."
+    )
+
     return {
-        "words": words,
-        "errors": error_count,
-        "accuracy_pct": accuracy,
-        "cefr": cefr.value,
+        "summary": summary,
+        "kpis": {
+            "words": words,
+            "errors": error_count,
+            "accuracy_pct": accuracy,
+            "cefr_estimate": cefr.value,
+        },
         "strengths": strengths or ["Consistent effort detected."],
         "improvements": improvements,
         "examples": examples,

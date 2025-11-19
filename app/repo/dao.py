@@ -50,8 +50,27 @@ def update_settings(db: Session, provider: models.LLMProvider, llm_model: str) -
     return settings
 
 
-def create_session(db: Session, user: models.User, topic: str) -> models.Session:
-    session = models.Session(user=user, topic=topic or "random")
+def list_practice_topics(db: Session) -> list[models.PracticeTopic]:
+    stmt = select(models.PracticeTopic).order_by(models.PracticeTopic.label.asc())
+    return list(db.scalars(stmt))
+
+
+def get_practice_topic_by_code(db: Session, code: str) -> models.PracticeTopic | None:
+    if not code:
+        return None
+    stmt = select(models.PracticeTopic).where(models.PracticeTopic.code == code).limit(1)
+    return db.execute(stmt).scalar_one_or_none()
+
+
+def get_random_practice_topic(db: Session) -> models.PracticeTopic | None:
+    stmt = select(models.PracticeTopic).order_by(func.random()).limit(1)
+    return db.execute(stmt).scalar_one_or_none()
+
+
+def create_session(
+    db: Session, user: models.User, topic: models.PracticeTopic, system_prompt: str
+) -> models.Session:
+    session = models.Session(user=user, topic=topic, system_prompt=system_prompt)
     db.add(session)
     db.flush()
     return session
@@ -199,35 +218,55 @@ def record_metric_snapshot(
     return snapshot
 
 
-def get_dashboard_summary(db: Session):
-    last_session_stmt = (
-        select(models.Session)
-        .where(models.Session.ended_at.is_not(None))
-        .order_by(models.Session.ended_at.desc())
-        .limit(1)
-    )
-    last_session = db.execute(last_session_stmt).scalar_one_or_none()
+def get_dashboard_summary(db: Session) -> dict:
+    finished_stmt = select(models.Session).where(models.Session.ended_at.is_not(None))
+    finished_sessions = list(db.scalars(finished_stmt))
+    study_seconds = 0.0
+    for session in finished_sessions:
+        if session.ended_at:
+            study_seconds += max(0.0, (session.ended_at - session.started_at).total_seconds())
 
-    sessions_total = db.scalar(select(func.count(models.Session.id))) or 0
-    quizzes_total = db.scalar(select(func.count(models.Quiz.id))) or 0
-    flashcards_total = db.scalar(select(func.count(models.Flashcard.id))) or 0
-    due_count = (
+    due_flashcards = (
+        db.scalar(select(func.count(models.Flashcard.id)).where(models.Flashcard.due_at <= datetime.now(tz=UTC)))
+        or 0
+    )
+    words_learned = (
+        db.scalar(select(func.count(func.distinct(models.ErrorSpan.user_text)))) or 0
+    )
+    conversations = (
         db.scalar(
-            select(func.count(models.Flashcard.id)).where(models.Flashcard.due_at <= datetime.now(tz=UTC))
+            select(func.count(models.Session.id)).where(
+                models.Session.status == models.SessionStatus.FINISHED
+            )
         )
         or 0
     )
 
+    latest_snapshot = (
+        db.execute(select(models.MetricSnapshot).order_by(models.MetricSnapshot.created_at.desc()).limit(1))
+        .scalar_one_or_none()
+    )
+    cefr = latest_snapshot.cefr_estimate.value if latest_snapshot else None
+    if cefr in {"A1", "A2"}:
+        fluency_level = "Beginner"
+    elif cefr in {"B1", "B2"}:
+        fluency_level = "Intermediate"
+    elif cefr in {"C1", "C2"}:
+        fluency_level = "Advanced"
+    else:
+        fluency_level = "Beginner"
+
     return {
-        "last_session": {
-            "id": last_session.id if last_session else None,
-            "topic": last_session.topic if last_session else None,
-            "ended_at": last_session.ended_at.isoformat() if last_session and last_session.ended_at else None,
-        },
-        "totals": {
-            "sessions": sessions_total,
-            "quizzes": quizzes_total,
-            "flashcards": flashcards_total,
-        },
-        "due_count": due_count,
+        "study_time_hours": round(study_seconds / 3600, 2),
+        "words_learned": words_learned,
+        "conversations": conversations,
+        "fluency_level": fluency_level,
+        "due_flashcards": due_flashcards,
     }
+
+
+def create_manual_flashcard(db: Session, front: str, back: str) -> models.Flashcard:
+    card = models.Flashcard(front=front.strip(), back=back.strip())
+    db.add(card)
+    db.flush()
+    return card

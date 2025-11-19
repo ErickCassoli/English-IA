@@ -22,3 +22,8 @@ class FlashcardReviewRequest(BaseModel):
 class FlashcardReviewResponse(BaseModel):
     id: str
     due_at: datetime
+
+
+class FlashcardManualCreateRequest(BaseModel):
+    front: str = Field(min_length=1)
+    back: str = Field(min_length=1)

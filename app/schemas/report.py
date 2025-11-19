@@ -3,11 +3,22 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 
-class ReportResponse(BaseModel):
+class ReportKPIs(BaseModel):
     words: int
     errors: int
     accuracy_pct: float
-    cefr: str
+    cefr_estimate: str
+
+
+class ReportExample(BaseModel):
+    source: str
+    target: str
+    note: str
+
+
+class ReportResponse(BaseModel):
+    summary: str
+    kpis: ReportKPIs
     strengths: list[str]
     improvements: list[str]
-    examples: list[dict[str, str]]
+    examples: list[ReportExample]

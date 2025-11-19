@@ -12,6 +12,7 @@ from app.routers import (
     dashboard,
     flashcards,
     health,
+    practice,
     quiz,
     reports,
     sessions,
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(health.router)
+    app.include_router(practice.router)
     app.include_router(sessions.router)
     app.include_router(chat.router)
     app.include_router(quiz.router)

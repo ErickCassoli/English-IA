@@ -18,5 +18,6 @@ def get_report(session_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Session not found")
     messages = dao.list_session_messages(db, session_id)
     errors = dao.list_session_errors(db, session_id)
-    data = report_service.build_report(messages, errors)
+    topic_label = session.topic.label if session.topic else session.topic_code
+    data = report_service.build_report(topic_label, messages, errors)
     return ReportResponse(**data)

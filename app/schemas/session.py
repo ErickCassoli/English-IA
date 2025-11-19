@@ -7,12 +7,17 @@ from pydantic import BaseModel, Field
 
 
 class SessionCreateRequest(BaseModel):
-    topic: Optional[str] = Field(default=None, description="Optional conversation topic.")
+    topic_code: Optional[str] = Field(
+        default=None, description="Optional practice topic code; random when omitted."
+    )
 
 
 class SessionResponse(BaseModel):
-    id: str
-    topic: str
+    session_id: str
+    topic_code: str
+    topic_label: str
+    topic_description: str
+    system_prompt: str
     status: str
     started_at: datetime
     ended_at: Optional[datetime]
