@@ -1,0 +1,24 @@
+<prompt id="cefr-rubric" version="1.0">
+  <meta>
+    <description>Describe CEFR-inspired KPIs for learner feedback.</description>
+  </meta>
+  <variables>
+    <var name="accuracy" required="true" />
+    <var name="fluency_notes" required="false" default="Stable flow" />
+  </variables>
+  <template><![CDATA[
+Use the following rubric to summarize the learner level.
+- A2: accuracy below 60%
+- B1: accuracy between 60% and 74%
+- B2: accuracy between 75% and 89%
+- C1: accuracy 90% or above
+Mention the provided fluency_notes.
+Return JSON only.
+  ]]></template>
+  <output><![CDATA[
+{
+  "cefr": "A2|B1|B2|C1",
+  "rationale": "string"
+}
+  ]]></output>
+</prompt>
