@@ -154,6 +154,16 @@ def get_quiz(db: Session, quiz_id: str) -> models.Quiz | None:
     return db.get(models.Quiz, quiz_id)
 
 
+def list_quiz_attempts_by_session(db: Session, session_id: str) -> list[models.QuizAttempt]:
+    stmt = (
+        select(models.QuizAttempt)
+        .join(models.Quiz, models.Quiz.id == models.QuizAttempt.quiz_id)
+        .where(models.Quiz.session_id == session_id)
+        .order_by(models.QuizAttempt.created_at.asc())
+    )
+    return list(db.scalars(stmt))
+
+
 def record_quiz_attempt(db: Session, quiz: models.Quiz, user: models.User, is_correct: bool, latency_ms: int):
     attempt = models.QuizAttempt(quiz=quiz, user=user, is_correct=is_correct, latency_ms=latency_ms)
     db.add(attempt)
@@ -216,6 +226,28 @@ def record_metric_snapshot(
     db.add(snapshot)
     db.flush()
     return snapshot
+
+
+def session_has_metrics(db: Session, session: models.Session) -> bool:
+    count = db.scalar(
+        select(func.count(models.MetricSnapshot.id)).where(models.MetricSnapshot.session_id == session.id)
+    )
+    return bool(count)
+
+
+def quizzes_completed(db: Session, session: models.Session) -> bool:
+    total_quizzes = db.scalar(select(func.count(models.Quiz.id)).where(models.Quiz.session_id == session.id)) or 0
+    if total_quizzes == 0:
+        return False
+    distinct_attempts = (
+        db.scalar(
+            select(func.count(func.distinct(models.QuizAttempt.quiz_id)))
+            .join(models.Quiz, models.Quiz.id == models.QuizAttempt.quiz_id)
+            .where(models.Quiz.session_id == session.id)
+        )
+        or 0
+    )
+    return distinct_attempts >= total_quizzes
 
 
 def get_dashboard_summary(db: Session) -> dict:

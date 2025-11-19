@@ -16,9 +16,16 @@ class ReportExample(BaseModel):
     note: str
 
 
+class QuizSummary(BaseModel):
+    total: int
+    correct: int
+    accuracy_pct: float
+
+
 class ReportResponse(BaseModel):
     summary: str
     kpis: ReportKPIs
+    quiz_summary: QuizSummary
     strengths: list[str]
     improvements: list[str]
     examples: list[ReportExample]

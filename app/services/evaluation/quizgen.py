@@ -1,9 +1,43 @@
 from __future__ import annotations
 
+import re
+from collections import Counter
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Iterable, Sequence
 
-from app.repo.models import ErrorSpan, QuizType
+from app.repo.models import ErrorSpan, Message, MessageRole, QuizType
+
+_STOPWORDS = {
+    "the",
+    "and",
+    "for",
+    "with",
+    "this",
+    "that",
+    "have",
+    "from",
+    "about",
+    "your",
+    "you",
+    "just",
+    "like",
+    "they",
+    "will",
+    "them",
+    "when",
+    "what",
+    "where",
+    "which",
+}
+_CONTEXT_DISTRACTORS = [
+    "beach",
+    "museum",
+    "mountain",
+    "market",
+    "station",
+    "temple",
+    "harbor",
+]
 
 
 @dataclass(slots=True)
@@ -13,6 +47,43 @@ class QuizPayload:
     choices: list[str]
     answer: str
     source_error_id: str | None = None
+
+
+def _is_user_message(message: Message) -> bool:
+    role = getattr(message, "role", None)
+    if role is None:
+        return False
+    if isinstance(role, MessageRole):
+        return role == MessageRole.USER
+    value = getattr(role, "value", role)
+    return value == "user"
+
+
+def _collect_user_text(messages: Iterable[Message]) -> str:
+    return " ".join(msg.text for msg in messages if getattr(msg, "text", "") and _is_user_message(msg))
+
+
+def _extract_keywords(messages: Sequence[Message]) -> list[str]:
+    text = _collect_user_text(messages[-6:])
+    tokens = re.findall(r"[A-Za-z][A-Za-z'\-]{3,}", text)
+    if not tokens:
+        return []
+    counter = Counter()
+    first_pos: dict[str, int] = {}
+    title_case: dict[str, bool] = {}
+    display: dict[str, str] = {}
+    for idx, token in enumerate(tokens):
+        lowered = token.lower()
+        if lowered in _STOPWORDS:
+            continue
+        counter[lowered] += 1
+        first_pos.setdefault(lowered, idx)
+        display.setdefault(lowered, token)
+        if token[0].isupper():
+            title_case[lowered] = True
+    items = list(counter.items())
+    items.sort(key=lambda item: (-item[1], not title_case.get(item[0], False), first_pos.get(item[0], 0)))
+    return [display[word] for word, _ in items[:3]]
 
 
 def _build_choices(correct: str, wrong: str) -> list[str]:
@@ -37,8 +108,19 @@ def _build_choices(correct: str, wrong: str) -> list[str]:
     return deduped
 
 
-def generate_quiz(topic: str, errors: Sequence[ErrorSpan]) -> list[QuizPayload]:
-    """Generate 3-5 deterministic quiz prompts prioritizing session errors."""
+def _context_choices(keyword: str) -> list[str]:
+    choices = [keyword]
+    for distractor in _CONTEXT_DISTRACTORS:
+        if distractor.lower() == keyword.lower():
+            continue
+        choices.append(distractor.title())
+        if len(choices) == 4:
+            break
+    return choices
+
+
+def generate_quiz(topic: str, errors: Sequence[ErrorSpan], messages: Sequence[Message]) -> list[QuizPayload]:
+    """Generate 3-5 deterministic quiz prompts referencing session errors and context."""
     items: list[QuizPayload] = []
 
     for error in list(errors)[:4]:
@@ -53,6 +135,20 @@ def generate_quiz(topic: str, errors: Sequence[ErrorSpan]) -> list[QuizPayload]:
                 choices=choices,
                 answer=correct,
                 source_error_id=error.id,
+            )
+        )
+
+    keywords = _extract_keywords(messages)
+    if keywords:
+        keyword = keywords[0]
+        prompt = f"Which place or detail did you mention while discussing {topic.lower()}?"
+        items.append(
+            QuizPayload(
+                type=QuizType.MCQ,
+                prompt=prompt,
+                choices=_context_choices(keyword),
+                answer=keyword.title(),
+                source_error_id=None,
             )
         )
 
@@ -79,7 +175,6 @@ def generate_quiz(topic: str, errors: Sequence[ErrorSpan]) -> list[QuizPayload]:
         )
     )
 
-    # Ensure 3-5 items deterministically
     unique_items: list[QuizPayload] = []
     seen_prompts: set[str] = set()
     for item in items:

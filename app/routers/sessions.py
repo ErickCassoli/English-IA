@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.repo import dao, models
 from app.repo.db import get_db
 from app.schemas.session import SessionCreateRequest, SessionFinishResponse, SessionResponse
-from app.services.evaluation import quizgen, report
+from app.services.evaluation import quizgen
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
@@ -77,7 +77,7 @@ def finish_session(session_id: str, db: Session = Depends(get_db)):
     errors = dao.list_session_errors(db, session_id)
 
     topic_label = session.topic.label if session.topic else session.topic_code
-    quiz_items = quizgen.generate_quiz(topic_label, errors)
+    quiz_items = quizgen.generate_quiz(topic_label, errors, messages)
     dao.create_quizzes(db, session, quiz_items)
 
     flashcards_created = 0
@@ -86,21 +86,11 @@ def finish_session(session_id: str, db: Session = Depends(get_db)):
         if created:
             flashcards_created += 1
 
-    report_data = report.build_report(topic_label, messages, errors)
-    dao.record_metric_snapshot(
-        db,
-        session.user,
-        session,
-        report_data["kpis"]["words"],
-        report_data["kpis"]["errors"],
-        report_data["kpis"]["accuracy_pct"],
-        models.CEFRLevel(report_data["kpis"]["cefr_estimate"]),
-    )
     dao.mark_session_finished(db, session)
     db.commit()
 
     return SessionFinishResponse(
         quizzes_created=len(quiz_items),
         flashcards_created=flashcards_created,
-        report_ready=True,
+        report_ready=False,
     )

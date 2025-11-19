@@ -23,3 +23,4 @@ class QuizAnswerResponse(BaseModel):
     quiz_id: str
     is_correct: bool
     flashcard_created: bool
+    report_ready: bool

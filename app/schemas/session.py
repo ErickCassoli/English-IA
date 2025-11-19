@@ -26,4 +26,4 @@ class SessionResponse(BaseModel):
 class SessionFinishResponse(BaseModel):
     quizzes_created: int
     flashcards_created: int
-    report_ready: bool = True
+    report_ready: bool = False
