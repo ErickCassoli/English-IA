@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.repo.db import init_db, session_scope
+from app.repo.db import init_db, session_scope, upgrade_db
 from app.repo.seed import seed_defaults
 from app.routers import (
     chat,
@@ -26,6 +26,7 @@ app_settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    upgrade_db()
     init_db()
     with session_scope() as db:
         seed_defaults(db)

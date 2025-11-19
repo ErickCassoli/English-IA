@@ -20,7 +20,7 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt -r requirements-dev.txt
 cp .env.example .env             # adjust DATABASE_URL / provider defaults if needed
 
-# Apply schema + seed default rows
+# Apply schema + seed default rows (startup also auto-runs migrations)
 alembic upgrade head
 python -m app.repo.seed
 
@@ -41,7 +41,7 @@ The compose file mounts the repo for live-reload and exposes port `8000`. An (op
 ## Database & migrations
 
 - Default DB: `sqlite:///./data.db` (edit `DATABASE_URL` in `.env` for Postgres/MySQL/etc.).
-- Create/upgrade schema: `alembic upgrade head`.
+- Create/upgrade schema: `alembic upgrade head`. The FastAPI lifespan also runs the Alembic upgrader automatically when the service boots, so manual upgrades are only necessary for CI/deployment scripts.
 - Generate new migrations: `alembic revision --autogenerate -m "message"`.
 - Seed lookup tables / defaults: `python -m app.repo.seed` (idempotent; creates the default user, LLM settings row, and practice topics).
 

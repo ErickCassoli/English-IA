@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from pathlib import Path
 
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
@@ -28,6 +31,14 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expi
 def init_db() -> None:
     """Ensure metadata exists (Alembic should still manage migrations)."""
     Base.metadata.create_all(bind=engine)
+
+
+def upgrade_db() -> None:
+    """Apply Alembic migrations programmatically on startup."""
+    config = Config(str(Path(__file__).resolve().parents[2] / "alembic.ini"))
+    config.set_main_option("script_location", str(Path(__file__).resolve().parents[2] / "alembic"))
+    config.set_main_option("sqlalchemy.url", settings.database_url)
+    command.upgrade(config, "head")
 
 
 def get_db():
