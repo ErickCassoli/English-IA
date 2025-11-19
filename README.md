@@ -1,110 +1,111 @@
-# English IA backend
+# English IA - Backend
 
-FastAPI + SQLite backend that powers a conversational English coach. It exposes a clean API (no UI) that lets you spin up conversation sessions, talk to an AI tutor (mock/Ollama/OpenAI), finish the session to obtain quizzes/reports/flashcards, and read dashboard KPIs. Everything runs locally by default (deterministic mock LLM + SQLite file).
+Backend FastAPI + SQLite focado em pratica de conversacao em ingles. A API controla sessoes de dialogo, gera quizzes contextualizados, cria flashcards via SM-2 e expõe KPIs para dashboards. Nao existe frontend neste repositório.
 
-## Highlights
+## Destaques
 
-- **Practice topics** stored in the DB (Travel, Technology, Food, Work, Entertainment, Daily Life). GET /api/practice/topics feeds the client.
-- **Session lifecycle** – POST /api/sessions picks a topic (random when omitted) and returns the tutor prompt; POST /api/chat/{session} streams the conversation with heuristic error detection; POST /api/sessions/{session}/finish generates quizzes/flashcards, and the report unlocks only after the learner answers the quizzes.
-- **Evaluation modules** – deterministic quiz generation (3–5 items), CEFR-style reporting with KPIs + narrative summary, heuristic error spans, and SM-2 SRS utilities.
-- **Flashcards & dashboard** – due flashcards, manual card creation/review endpoints, and GET /api/dashboard/summary exposes study_time_hours, words_learned, conversations, luency_level, and due_flashcards.
-- **Modular LLM registry** – runtime switch between simple_mock, ollama, and openai providers through /api/settings.
-- **Websocket stub** – /ws/call simply echoes text to unblock voice experiments.
-## Getting started
+- **Temas de pratica**: `/api/practice/topics` retorna os topicos seedados (travel, technology, etc.).
+- **Ciclo da sessao**: `POST /api/sessions` cria a sessao com prompt orientado ao topico, `POST /api/chat/{session}` registra conversa + heuristicas de erro, `POST /api/sessions/{session}/finish` produz quizzes/flashcards e marca a sessao como pronta para avaliacoes. O relatorio so libera apos responder todos os quizzes.
+- **Quizzes contextualizados**: gerados a partir de erros e dos ultimos trechos da conversa (lugares citados, detalhes da viagem, etc.), sempre com uma alternativa correta.
+- **Relatorios com quiz_summary**: consolidam palavras, erros, CEFR estimado e desempenho nos quizzes (total, corretos, accuracy).
+- **LLM modular**: registry alterna entre `simple_mock`, `ollama` e `openai`; `/api/settings` atualiza provider/modelo.
+- **Infra pronta**: migrations Alembic, seed idempotente, Dockerfile + docker compose, hooks de qualidade (Ruff, Black, pytest) e CI no GitHub Actions.
+
+## Requisitos
+
+- Python 3.11+
+- SQLite (bundle do Python ja atende)
+- Pip/venv para isolar dependencias
+
+## Como rodar localmente
 
 ```bash
 python -m venv .venv
-. .venv/bin/activate             # Windows: .\.venv\Scripts\activate
-python -m pip install --upgrade pip
+. .venv/bin/activate          # Windows: .\.venv\Scripts\activate
+pip install --upgrade pip
 pip install -r requirements.txt -r requirements-dev.txt
-cp .env.example .env             # adjust DATABASE_URL / provider defaults if needed
+cp .env.example .env
 
-# Apply schema + seed default rows (startup also auto-runs migrations)
+# aplica migrations e insere seed (tambem ocorre automaticamente no startup do FastAPI)
 alembic upgrade head
 python -m app.repo.seed
 
-# Launch the API
 uvicorn app.main:app --reload
 ```
 
-Interactive docs live at http://localhost:8000/docs and http://localhost:8000/redoc.
+Docs interativas: http://localhost:8000/docs e http://localhost:8000/redoc.
 
-### Docker
+## Docker / Compose
 
 ```bash
 docker compose up --build
 ```
 
-The compose file mounts the repo for live-reload and exposes port `8000`. An (optional) Ollama service block is already included but commented out.
+O servico `api` expõe a porta 8000 e monta o workspace para hot reload. Ha um bloco comentado para subir o Ollama lado a lado.
 
-## Database & migrations
+## Banco de dados e migrations
 
-- Default DB: `sqlite:///./data.db` (edit `DATABASE_URL` in `.env` for Postgres/MySQL/etc.).
-- Create/upgrade schema: `alembic upgrade head`. The FastAPI lifespan also runs the Alembic upgrader automatically when the service boots, so manual upgrades are only necessary for CI/deployment scripts.
-- Generate new migrations: `alembic revision --autogenerate -m "message"`.
-- Seed lookup tables / defaults: `python -m app.repo.seed` (idempotent; creates the default user, LLM settings row, and practice topics).
+- URL padrao: `sqlite:///./data.db` (defina `DATABASE_URL` se quiser Postgres/MySQL).
+- Rodar migration: `alembic upgrade head`. O lifespan do FastAPI executa `alembic upgrade head` automaticamente no bootstrap, portanto basta garantir que o arquivo `alembic.ini` esteja configurado.
+- Seed: `python -m app.repo.seed` cria usuario default, settings e topicos.
 
-## API rundown
+## Variaveis de ambiente (.env)
 
-| Domain | Endpoint | Notes |
-| --- | --- | --- |
-| Health | `GET /healthz` | Simple readiness probe |
-| Practice | `GET /api/practice/topics` | Topic list for the Practice screen |
-| Sessions | `POST /api/sessions` | Body: `{ "topic_code": "travel" | null }` → returns session id, topic details, system prompt |
-| Sessions | `POST /api/sessions/{id}/finish` | Generates quizzes/flashcards and signals that the report will unlock after quizzes |
-| Chat | `POST /api/chat/{session}/message` | Saves user msg, detects errors, calls LLM registry, stores assistant reply + error spans |
-| Quiz | `GET /api/quiz/by-session/{session}` / `POST /api/quiz/{quiz_id}/answer` | Quiz flow + flashcard-on-repeat errors; answers return `report_ready` |
-| Reports | `GET /api/reports/{session}` | Summary sentence, KPIs, quiz performance, strengths/improvements; only available once quizzes are done |
-| Flashcards | `GET /api/flashcards/due`, `POST /api/flashcards/{id}/review`, `POST /api/flashcards/manual` | Due cards, SM‑2 review, manual creation |
-| Dashboard | `GET /api/dashboard/summary` | Aggregated KPIs for the dashboard |
-| Settings | `GET/POST /api/settings` | Switch `simple_mock`, `ollama`, or `openai` + model |
-| Voice stub | `WS /ws/call` | Accepts messages and echoes JSON events |
+```
+BACKEND_HOST=0.0.0.0
+BACKEND_PORT=8000
+DATABASE_URL=sqlite:///./data.db
+DEFAULT_LLM_PROVIDER=simple_mock
+DEFAULT_LLM_MODEL=mock-1
+OLLAMA_BASE_URL=http://localhost:11434
+OPENAI_API_KEY=
+```
 
-All schemas live under `app/schemas/` and mirror these contracts.
+Personalize `CORS_ORIGINS` se expor para frontends externos. Para usar o provider `openai`, defina `OPENAI_API_KEY`. Para `ollama`, garanta que o endpoint esteja acessivel no host configurado.
 
-## Documentação detalhada da API
+## Fluxo completo recomendado
 
-Cada endpoint retorna/aceita JSON e está descrito abaixo. Autenticação ainda não é necessária; todos os fluxos operam para o “Local Learner” padrão.
+1. `GET /api/practice/topics` para preencher a UI de escolha do tema.
+2. `POST /api/sessions` (body opcional `{ "topic_code": "travel" }`). Resposta inclui `session_id` + prompt do tutor.
+3. `POST /api/chat/{session_id}/message` repita quantas vezes quiser (minimo 3 recomendado). Cada chamada detecta erros (`detected_errors`) e grava a replica do LLM escolhido.
+4. `POST /api/sessions/{session_id}/finish` ao encerrar a conversa. Esta etapa cria quizzes baseados nas mensagens e flashcards derivados dos erros. O campo `report_ready` vira `false` ate os quizzes serem respondidos.
+5. `GET /api/quiz/by-session/{session_id}` para obter os quizzes.
+6. `POST /api/quiz/{quiz_id}/answer` para cada quiz. A resposta contem `report_ready`; so apos o ultimo quiz respondido o relatorio eh liberado e o snapshot de metricas eh escrito.
+7. `GET /api/reports/{session_id}` para ler o resumo (se todos quizzes foram respondidos).
+8. `GET /api/flashcards/due` + `POST /api/flashcards/{id}/review` para revisoes SM-2; use `POST /api/flashcards/manual` para criar cards manuais.
+9. `GET /api/dashboard/summary` para exibir KPIs agregados (tempo de estudo, palavras aprendidas, conversas, fluency level, due cards).
+10. `GET/POST /api/settings` para trocar de provider LLM durante o fluxo.
+
+## Documentacao detalhada da API
 
 ### Health
 
-| Método | Rota | Descrição |
+| Metodo | Rota | Descricao |
 | --- | --- | --- |
-| `GET` | `/healthz` | Verifica se o serviço e a DB estão ativos. |
+| `GET` | `/healthz` | status do servico |
 
-**Resposta 200**
-
+Resp 200:
 ```json
 { "status": "ok" }
 ```
 
 ### Practice
 
-| Método | Rota | Descrição |
+| Metodo | Rota | Descricao |
 | --- | --- | --- |
-| `GET` | `/api/practice/topics` | Lista os temas configurados (Travel, Technology, etc.). |
+| `GET` | `/api/practice/topics` | Lista os temas seedados. |
 
-**Resposta 200**
+### Sessoes
 
-```json
-[
-  {"code": "travel", "label": "Travel", "description": "Discuss trips..."},
-  {"code": "technology", "label": "Technology", "description": "Talk about gadgets..."}
-]
-```
-
-### Sessions
-
-| Método | Rota | Payload | Descrição |
+| Metodo | Rota | Payload | Descricao |
 | --- | --- | --- | --- |
-| `POST` | `/api/sessions` | `{ "topic_code": "travel" \| null }` | Cria uma sessão ativa. Tema opcional: `null` sorteia um aleatório. |
-| `POST` | `/api/sessions/{session_id}/finish` | - | Finaliza a sessão, gera quizzes/flashcards e retorna `report_ready: false` até os quizzes serem respondidos. |
+| `POST` | `/api/sessions` | `{ "topic_code": "travel" \| null }` | Cria sessao e retorna prompt do tutor. |
+| `POST` | `/api/sessions/{session_id}/finish` | - | Gera quizzes (3-5) + flashcards. `report_ready` permanece `false` ate quizzes terminarem. |
 
-**Resposta 200 (criação)**
-
+Exemplo de criacao:
 ```json
 {
-  "session_id": "7ca...",
+  "session_id": "c8f...",
   "topic_code": "travel",
   "topic_label": "Travel",
   "topic_description": "Discuss trips...",
@@ -115,8 +116,7 @@ Cada endpoint retorna/aceita JSON e está descrito abaixo. Autenticação ainda 
 }
 ```
 
-**Resposta 200 (finish)**
-
+Resultado do finish:
 ```json
 {
   "quizzes_created": 4,
@@ -127,15 +127,14 @@ Cada endpoint retorna/aceita JSON e está descrito abaixo. Autenticação ainda 
 
 ### Chat
 
-| Método | Rota | Payload | Descrição |
+| Metodo | Rota | Payload | Descricao |
 | --- | --- | --- | --- |
-| `POST` | `/api/chat/{session_id}/message` | `{ "text": "..." }` | Salva mensagem do usuário, roda heurísticas de erro e obtém reply do LLM configurado. |
+| `POST` | `/api/chat/{session_id}/message` | `{ "text": "..." }` | Salva mensagem do usuario, detecta erros, chama LLM (registry), armazena replica do assistente. |
 
-**Resposta 200**
-
+Resposta:
 ```json
 {
-  "reply": "Here's a clearer version...",
+  "reply": "Here is a clearer version...",
   "detected_errors": [
     {
       "start": 0,
@@ -143,7 +142,7 @@ Cada endpoint retorna/aceita JSON e está descrito abaixo. Autenticação ainda 
       "category": "grammar",
       "user_text": "I am agree",
       "corrected_text": "I agree",
-      "note": "Use 'agree' sem auxiliar."
+      "note": "Use agree sem o verbo auxiliar."
     }
   ]
 }
@@ -151,23 +150,12 @@ Cada endpoint retorna/aceita JSON e está descrito abaixo. Autenticação ainda 
 
 ### Quiz
 
-| Método | Rota | Payload | Descrição |
+| Metodo | Rota | Payload | Descricao |
 | --- | --- | --- | --- |
-| `GET` | `/api/quiz/by-session/{session_id}` | - | Lista quizzes gerados para a sessão. |
-| `POST` | `/api/quiz/{quiz_id}/answer` | `{ "choice": "text", "latency_ms": 1200 }` | Registra tentativa; se erro reincidente gera flashcard e indica (`report_ready`) quando todos os quizzes já foram respondidos. |
+| `GET` | `/api/quiz/by-session/{session_id}` | - | Lista quizzes da sessao (MCQ ou cloze). |
+| `POST` | `/api/quiz/{quiz_id}/answer` | `{ "choice": "texto", "latency_ms": 1234 }` | Registra tentativa, cria flashcard se erro reincidente e informa se o relatorio ja esta pronto. |
 
-**Resposta 200 (listar)**
-
-```json
-{
-  "items": [
-    {"id": "quiz1", "type": "mcq", "prompt": "Choose...", "choices": ["I agree", "I am agree"]}
-  ]
-}
-```
-
-**Resposta 200 (answer)**
-
+Exemplo de resposta no envio de resposta:
 ```json
 {
   "quiz_id": "quiz1",
@@ -177,14 +165,13 @@ Cada endpoint retorna/aceita JSON e está descrito abaixo. Autenticação ainda 
 }
 ```
 
-### Reports
+### Relatorios
 
-| Método | Rota | Descrição |
+| Metodo | Rota | Descricao |
 | --- | --- | --- |
-| `GET` | `/api/reports/{session_id}` | Retorna resumo analítico, KPIs, desempenho nos quizzes e exemplos; disponível apenas depois que todos os quizzes forem respondidos. |
+| `GET` | `/api/reports/{session_id}` | Libera apenas apos todos os quizzes terem uma resposta. |
 
-**Resposta 200**
-
+Resposta:
 ```json
 {
   "summary": "You practiced travel...",
@@ -198,82 +185,38 @@ Cada endpoint retorna/aceita JSON e está descrito abaixo. Autenticação ainda 
 
 ### Flashcards
 
-| Método | Rota | Payload | Descrição |
+| Metodo | Rota | Payload | Descricao |
 | --- | --- | --- | --- |
-| `GET` | `/api/flashcards/due` | — | Lista cards vencidos (SM-2). |
-| `POST` | `/api/flashcards/{id}/review` | `{ "quality": 0..5 }` | Atualiza ease/interval/due. |
-| `POST` | `/api/flashcards/manual` | `{ "front": "...", "back": "..." }` | Cria card manual desvinculado de erros. |
+| `GET` | `/api/flashcards/due` | - | Lista cards vencidos (SM-2). |
+| `POST` | `/api/flashcards/{id}/review` | `{ "quality": 0..5 }` | Recalcula reps/interval/ease e agenda nova data. |
+| `POST` | `/api/flashcards/manual` | `{ "front": "...", "back": "..." }` | Cria card manual. |
 
 ### Dashboard
 
-| Método | Rota | Descrição |
+| Metodo | Rota | Descricao |
 | --- | --- | --- |
-| `GET` | `/api/dashboard/summary` | KPIs agregados (`study_time_hours`, `words_learned`, `conversations`, `fluency_level`, `due_flashcards`). |
+| `GET` | `/api/dashboard/summary` | Retorna `study_time_hours`, `words_learned`, `conversations`, `fluency_level` e `due_flashcards`. |
 
-### Settings (LLM)
+### Settings
 
-| Método | Rota | Payload | Descrição |
+| Metodo | Rota | Payload | Descricao |
 | --- | --- | --- | --- |
-| `GET` | `/api/settings` | — | Mostra provider/model atuais. |
-| `POST` | `/api/settings` | `{ "llm_provider": "simple_mock|ollama|openai", "llm_model": "..." }` | Persiste provider/model; validações básicas. |
+| `GET` | `/api/settings` | - | Le provider/modelo atuais. |
+| `POST` | `/api/settings` | `{ "llm_provider": "simple_mock\|ollama\|openai", "llm_model": "..." }` | Atualiza provider/modelo; valida provider e exige nome de modelo. |
 
-### Websocket stub
+### WebSocket
 
-| Método | Rota | Descrição |
+| Metodo | Rota | Descricao |
 | --- | --- | --- |
-| `WS` | `/ws/call` | Aceita conexão, envia `{event:"start"}`, ecoa mensagens recebidas como `{event:"partial", "echo": "..."};` finaliza com `{event:"final"}`. Útil para testar stacks de voz. |
+| `WS` | `/ws/call` | Stub para modo voz: aceita conexao, envia evento `start`, ecoa mensagens como `partial` e encerra com `final`. |
 
-## Configuration
+## Qualidade e CI
 
-`.env.example` documents every knob:
+- `ruff check .` – lint padrao (hook pre-commit e step no GitHub Actions).
+- `black .` / `ruff format .` – formatacao.
+- `pytest` – inclui testes de heuristica (`errors`), quiz generation contextual, relatorios (quiz summary), settings DAO e SM-2.
+- `.github/workflows/ci.yml` instala dependencias, roda Ruff, Bandit e pytest em cada push/PR.
 
-```
-BACKEND_HOST=0.0.0.0
-BACKEND_PORT=8000
-DATABASE_URL=sqlite:///./data.db
-DEFAULT_LLM_PROVIDER=simple_mock
-DEFAULT_LLM_MODEL=mock-1
-OLLAMA_BASE_URL=http://localhost:11434
-OPENAI_API_KEY=
-```
+## Licenca
 
-At runtime you can switch providers via `/api/settings`:
-
-```bash
-curl -X POST http://localhost:8000/api/settings \
-  -H "Content-Type: application/json" \
-  -d '{"llm_provider":"ollama","llm_model":"llama3"}'
-```
-
-The registry will attempt Ollama/OpenAI and fall back to the deterministic mock when credentials/endpoints are missing.
-
-## Project layout
-
-```
-app/
-  main.py                # FastAPI app factory + lifespan seeds
-  routers/               # Endpoint routers (health, practice, sessions, chat, quiz, reports, flashcards, dashboard, settings, ws)
-  repo/                  # SQLAlchemy models, DAO helpers, Alembic metadata, seed script
-  services/
-    llm/                 # LLM clients + registry
-    evaluation/          # error heuristics, quiz gen, report builder, SM-2
-  schemas/               # Pydantic request/response models
-  utils/                 # config/env helpers, ids/time utils
-  ws/                    # simple websocket echo stub
-alembic/                 # migration env + versions (SQLite by default)
-prompts/                 # tutor/correction/CEFR prompt templates
-tests/                   # pytest suites (errors, quizgen, srs, settings)
-```
-
-## Quality & CI
-
-- `ruff check .` – linting via Ruff (also runs in pre-commit + CI).
-- `ruff format .` or `black .` – formatting (Black is wired into pre-commit; Ruff format mirrors it).
-- `pytest` – runs the deterministic unit tests (errors, quizgen, SM‑2, settings persistence).
-- GitHub Actions (`.github/workflows/ci.yml`) installs deps, runs Ruff, Bandit, and pytest on pushes/PRs.
-
-Install the hooks locally with `pre-commit install` to match CI.
-
-## License
-
-MIT – see `LICENSE`.
+MIT License (ver `LICENSE`). Contributions seguem `CONTRIBUTING.md` e `CODE_OF_CONDUCT.md`.
