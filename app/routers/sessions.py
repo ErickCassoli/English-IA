@@ -42,6 +42,8 @@ def _to_response(session: models.Session, topic: models.PracticeTopic) -> Sessio
         status=session.status.value,
         started_at=session.started_at,
         ended_at=session.ended_at,
+        active_minutes=round((session.active_seconds or 0) / 60, 2),
+        last_interaction_at=session.last_interaction_at,
     )
 
 
@@ -70,8 +72,15 @@ def finish_session(session_id: str, db: Session = Depends(get_db)):
     session = dao.get_session(db, session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    if session.status == models.SessionStatus.FINISHED:
-        return SessionFinishResponse(quizzes_created=0, flashcards_created=0, report_ready=True)
+    
+    # If already pending quiz or finished, just return status
+    if session.status in (models.SessionStatus.PENDING_QUIZ, models.SessionStatus.FINISHED):
+        quizzes = dao.list_quizzes_by_session(db, session_id)
+        return SessionFinishResponse(
+            quizzes_created=len(quizzes),
+            flashcards_created=0,
+            report_ready=session.status == models.SessionStatus.FINISHED
+        )
 
     messages = dao.list_session_messages(db, session_id)
     errors = dao.list_session_errors(db, session_id)
@@ -80,6 +89,38 @@ def finish_session(session_id: str, db: Session = Depends(get_db)):
     quiz_items = quizgen.generate_quiz(topic_label, errors, messages)
     dao.create_quizzes(db, session, quiz_items)
 
+    session.status = models.SessionStatus.PENDING_QUIZ
+    db.add(session)
+    db.commit()
+
+    return SessionFinishResponse(
+        quizzes_created=len(quiz_items),
+        flashcards_created=0,
+        report_ready=False,
+    )
+
+
+@router.post("/{session_id}/submit_quiz", response_model=SessionFinishResponse)
+def submit_quiz(session_id: str, answers: dict[str, str], db: Session = Depends(get_db)):
+    session = dao.get_session(db, session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    if session.status == models.SessionStatus.FINISHED:
+        return SessionFinishResponse(quizzes_created=0, flashcards_created=0, report_ready=True)
+
+    # Process answers
+    current_quizzes = dao.list_quizzes_by_session(db, session_id)
+    quiz_map = {q.id: q for q in current_quizzes}
+    
+    for q_id, user_answer in answers.items():
+        if q_id in quiz_map:
+            quiz = quiz_map[q_id]
+            is_correct = (user_answer.strip().lower() == quiz.answer.strip().lower())
+            dao.record_quiz_attempt(db, quiz, session.user, is_correct, latency_ms=0)
+
+    # Generate Flashcards & Finalize
+    errors = dao.list_session_errors(db, session_id)
     flashcards_created = 0
     for error in errors:
         _, created = dao.ensure_flashcard_from_error(db, error, error.user_text, error.corrected_text)
@@ -90,7 +131,7 @@ def finish_session(session_id: str, db: Session = Depends(get_db)):
     db.commit()
 
     return SessionFinishResponse(
-        quizzes_created=len(quiz_items),
+        quizzes_created=len(current_quizzes),
         flashcards_created=flashcards_created,
-        report_ready=False,
+        report_ready=True
     )

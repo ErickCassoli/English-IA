@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from enum import Enum
 from typing import List, Optional
 
-from sqlalchemy import DateTime, Enum as SQLEnum, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Date, DateTime, Enum as SQLEnum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.repo.db import Base
@@ -23,6 +24,7 @@ class LLMProvider(str, Enum):
 
 class SessionStatus(str, Enum):
     ACTIVE = "active"
+    PENDING_QUIZ = "pending_quiz"
     FINISHED = "finished"
 
 
@@ -61,6 +63,10 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
 
     sessions: Mapped[List["Session"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    daily_practices: Mapped[List["DailyPractice"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    streak: Mapped[Optional["UserStreak"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan", uselist=False
+    )
 
 
 class PracticeTopic(Base):
@@ -97,6 +103,8 @@ class Session(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     system_prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    active_seconds: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_interaction_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     user: Mapped["User"] = relationship(back_populates="sessions")
     topic: Mapped["PracticeTopic"] = relationship(back_populates="sessions")
@@ -107,6 +115,7 @@ class Session(Base):
     metric_snapshots: Mapped[List["MetricSnapshot"]] = relationship(
         back_populates="session", cascade="all, delete-orphan"
     )
+    daily_practices: Mapped[List["DailyPractice"]] = relationship(back_populates="session")
 
 
 class Message(Base):
@@ -201,3 +210,34 @@ class MetricSnapshot(Base):
 
     session: Mapped["Session"] = relationship(back_populates="metric_snapshots")
     user: Mapped["User"] = relationship()
+
+
+class DailyPractice(Base):
+    __tablename__ = "daily_practices"
+    __table_args__ = (UniqueConstraint("user_id", "date", name="uq_daily_practice_user_date"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    session_id: Mapped[Optional[str]] = mapped_column(ForeignKey("sessions.id"))
+    messages_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    minutes_estimated: Mapped[Decimal] = mapped_column(Numeric(6, 2), default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+
+    user: Mapped["User"] = relationship(back_populates="daily_practices")
+    session: Mapped[Optional["Session"]] = relationship(back_populates="daily_practices")
+
+
+class UserStreak(Base):
+    __tablename__ = "user_streaks"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False, unique=True)
+    current_streak_days: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    longest_streak_days: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_practice_date: Mapped[Optional[date]] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+
+    user: Mapped["User"] = relationship(back_populates="streak")
