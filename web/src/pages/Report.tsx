@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { CheckCircle, BarChart2, Book, ArrowRight } from "lucide-react";
-import { api } from "../services/api";
+import { useNavigate } from "react-router-dom";
+import { CheckCircle, BarChart2, Book } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 
 export default function Report() {
-  const { sessionId } = useParams();
   const navigate = useNavigate();
-  const [stats, setStats] = useState<any>(null); // Ideally fetch session stats
   const [loading, setLoading] = useState(true);
 
   // For this simplified version, we'll just show a success message and links

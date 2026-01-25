@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "C:\Users\erick\Documents\Repositorios\English-IA\app\routers\chat.py", line 53, in send_message
+    user_message = dao.append_message(db, session, models.MessageRole.USER, payload.text.strip())
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\erick\Documents\Repositorios\English-IA\app\repo\dao.py", line 182, in append_message
+    seconds_added = _compute_active_delta(session, ts)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\erick\Documents\Repositorios\English-IA\app\repo\dao.py", line 32, in _compute_active_delta
+    delta = (ts - last).total_seconds()
+             ~~~^~~~~~
+TypeError: can't subtract offset-naive and offset-aware datetimes

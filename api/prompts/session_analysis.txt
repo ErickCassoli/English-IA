@@ -1,0 +1,23 @@
+You are an expert English tutor. Analyze the following conversation transcript between a Tutor and a Learner.
+
+Your task is to generate a JSON object containing:
+1. "quizzes": A list of 3 Multiple Choice Questions (MCQ) that test the Learner's comprehension of the specific topics and details discussed. Make them challenging but fair.
+   - "prompt": The question text.
+   - "choices": Array of 4 strings (options).
+   - "answer": The correct string from the options.
+2. "flashcards": A list of up to 3 flashcards correcting significant errors made by the Learner.
+   - "front": The sentence with the error (or a concept).
+   - "back": The correction and a brief explanation.
+
+Transcript:
+{{transcript}}
+
+Output strictly valid JSON with this structure:
+{
+  "quizzes": [
+    {"prompt": "...", "choices": ["...", "...", "...", "..."], "answer": "..."}
+  ],
+  "flashcards": [
+    {"front": "...", "back": "..."}
+  ]
+}

@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0B1120;
+  --color-card: #151e32;
+  --color-primary: #06b6d4;
+  --color-primary-hover: #0891b2;
+  --color-secondary: #334155;
+  
+  --font-sans: Inter, sans-serif;
+  
+  --backgroundImage-hero-glow: conic-gradient(from 180deg at 50% 50%, #2a8af6 0deg, #a853ba 180deg, #e92a67 360deg);
+}
+
+@layer utilities {
+  .glass-card {
+    @apply bg-slate-800/40 backdrop-blur-xl border border-slate-700/50 shadow-xl;
+  }
+  
+  .glass-panel {
+    @apply bg-[#0f172a]/60 backdrop-blur-2xl border-l border-white/5;
+  }
+}

@@ -7,6 +7,16 @@ export interface PracticeTopic {
 export interface ChatMessage {
     role: 'user' | 'assistant' | 'system';
     text: string;
+    detected_errors?: DetectedError[];
+}
+
+export interface DetectedError {
+    start: number;
+    end: number;
+    category: string;
+    user_text: string;
+    corrected_text: string;
+    note: string;
 }
 
 export interface SessionResponse {
@@ -17,13 +27,24 @@ export interface SessionResponse {
 export interface Settings {
     llm_provider: string;
     llm_model: string;
+    native_language?: string;
+    target_language?: string;
 }
 
 export interface DashboardSummary {
     study_time_hours: number;
+    study_time_total_seconds: number;
     words_learned: number;
     conversations: number;
     fluency_level: string;
+    fluency_score: number;
+    is_assessed: boolean;
+    skills: {
+        reading: number;
+        writing: number;
+        listening: number;
+        speaking: number;
+    };
     due_flashcards: number;
     minutes_today: number;
     current_streak_days: number;
@@ -40,11 +61,15 @@ export const api = {
         return res.json();
     },
 
-    createSession: async (topicCode?: string): Promise<SessionResponse> => {
+    createSession: async (topicCode?: string | null, customTopic?: string): Promise<SessionResponse> => {
+        const body: any = {};
+        if (topicCode) body.topic_code = topicCode;
+        if (customTopic) body.custom_topic = customTopic;
+
         const res = await fetch(`${API_URL}/sessions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ topic_code: topicCode || undefined }),
+            body: JSON.stringify(body),
         });
         if (!res.ok) throw new Error('Failed to create session');
         return res.json();
@@ -90,6 +115,16 @@ export const api = {
         return res.json();
     },
 
+    reviewFlashcard: async (cardId: string, quality: number): Promise<any> => {
+        const res = await fetch(`${API_URL}/flashcards/${cardId}/review`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quality }),
+        });
+        if (!res.ok) throw new Error('Failed to review flashcard');
+        return res.json();
+    },
+
     getSettings: async (): Promise<Settings> => {
         const res = await fetch(`${API_URL}/settings`);
         if (!res.ok) throw new Error('Failed to fetch settings');
@@ -120,5 +155,33 @@ export const api = {
         });
         if (!res.ok) throw new Error('Failed to submit quiz');
         return res.json();
+    },
+
+    resetData: async (): Promise<void> => {
+        const res = await fetch(`${API_URL}/admin/reset`, {
+            method: 'DELETE',
+        });
+        if (!res.ok) throw new Error('Failed to reset data');
+    },
+
+    getPlacementQuestions: async (): Promise<{ id: number, text: string, options: string[] }[]> => {
+        const res = await fetch(`${API_URL}/placement/questions`);
+        if (!res.ok) throw new Error('Failed to fetch questions');
+        return res.json();
+    },
+
+    submitPlacementTest: async (answers: Record<number, string>): Promise<any> => {
+        const res = await fetch(`${API_URL}/placement/submit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ answers }),
+        });
+        if (!res.ok) throw new Error('Failed to submit test');
+        return res.json();
+    },
+
+    getRecentTopics: async (): Promise<{ code: string, label: string, description: string }[]> => {
+        const res = await fetch(`${API_URL}/sessions/recent-topics`);
+        return res.ok ? res.json() : [];
     }
 };

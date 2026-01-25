@@ -7,6 +7,7 @@ import Flashcards from "./pages/Flashcards";
 import SettingsPage from "./pages/Settings";
 import Quiz from "./pages/Quiz";
 import Report from "./pages/Report";
+import PlacementTest from "./pages/PlacementTest";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/placement" element={<PlacementTest />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/flashcards" element={<Flashcards />} />
           <Route path="/practice" element={<Practice />} />
