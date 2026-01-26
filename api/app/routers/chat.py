@@ -13,6 +13,18 @@ from app.services.evaluation import errors as error_service
 from app.services.llm import registry
 from app.utils.config import get_settings
 
+"""
+Chat Router
+===========
+
+Handles all real-time conversational interactions between the user and the AI Tutor.
+This module manages message persistence, error detection pipelines, and LLM responses.
+
+Endpoints:
+    - POST /message: Send a user message and get a response + corrections.
+    - GET  /history: Retrieve past messages for the session.
+"""
+
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 runtime_config = get_settings()
 
@@ -45,6 +57,26 @@ def _serialize_errors(detected: list[error_service.DetectedError]) -> list[Detec
 
 @router.post("/{session_id}/message", response_model=ChatMessageResponse)
 def send_message(session_id: str, payload: ChatMessageRequest, db: Session = Depends(get_db)):
+    """
+    Process a new user message in an active session.
+
+    This endpoint performs three key actions:
+    1. Saves the user's message to the database.
+    2. Runs an asynchronous error detection pipeline (Grammar/Vocab/Fluency).
+    3. Generates an AI response using the configured Tutor Persona (LLM).
+
+    Args:
+        session_id (str): The UUID of the active session.
+        payload (ChatMessageRequest): The message content.
+        db (Session): Database session dependency.
+
+    Returns:
+        ChatMessageResponse: Contains the AI's reply and a list of detected errors.
+
+    Raises:
+        HTTPException(404): If session not found.
+        HTTPException(400): If session is not active or message is empty.
+    """
     if not payload.text.strip():
         raise HTTPException(status_code=400, detail="Text is required")
     session = dao.get_session(db, session_id)

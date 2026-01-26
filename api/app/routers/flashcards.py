@@ -13,6 +13,20 @@ from app.schemas.flashcard import (
 )
 from app.services.evaluation import srs
 
+"""
+Flashcards Router
+=================
+
+Manages the Spaced Repetition System (SRS) for vocabulary retention.
+The core logic relies on `app.services.evaluation.srs` (modified SM-2 algorithm).
+
+Endpoints:
+    - GET /: List all cards.
+    - GET /due: List cards scheduled for review NOW.
+    - POST /{id}/review: Submit a review grade (0-5) to reschedule the card.
+    - POST /manual: Manually create a card.
+"""
+
 router = APIRouter(prefix="/api/flashcards", tags=["flashcards"])
 
 
@@ -60,6 +74,22 @@ def due_flashcards(db: Session = Depends(get_db)):
 
 @router.post("/{card_id}/review", response_model=FlashcardReviewResponse)
 def review_flashcard(card_id: str, payload: FlashcardReviewRequest, db: Session = Depends(get_db)):
+    """
+    Process a review limit for a flashcard using SRS.
+
+    Algorithm:
+    1. Retrieve current card state (Ease Factor, Interval, Reps).
+    2. Apply modified SM-2 algorithm based on user quality rating (0-5).
+    3. Calculate the NEXT due date.
+    4. Update DB.
+
+    Args:
+        card_id (str): UUID.
+        payload (FlashcardReviewRequest): Quality score (0=Blackout, 5=Perfect).
+
+    Returns:
+        FlashcardReviewResponse: New due date.
+    """
     card = db.get(models.Flashcard, card_id)
     if not card:
         raise HTTPException(status_code=404, detail="Flashcard not found")

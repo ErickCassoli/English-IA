@@ -13,6 +13,24 @@ from app.services.evaluation import quizgen
 from app.services.llm import registry
 from app.utils.config import get_settings
 
+"""
+Sessions Router
+===============
+
+Manages the lifecycle of learning sessions (Topic selection -> Chat -> Evaluation).
+Responsible for orchestrating the "Practice Loop":
+1. Create Session (Topic/Persona selection)
+2. Interactive Chat (via Chat Router)
+3. Finish Session (Generate Quizzes/Review)
+4. Submit Quiz (SRS Flashcard creation)
+
+Endpoints:
+    - POST /: Start new session.
+    - POST /{id}/finish: Generate analysis (Quizzes).
+    - POST /{id}/submit_quiz: Save results and create flashcards.
+    - GET  /history: User session log.
+"""
+
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 runtime_config = get_settings()
 # Trigger reload for prompt update
@@ -68,6 +86,21 @@ def _to_response(session: models.Session, topic: models.PracticeTopic) -> Sessio
 
 @router.post("", response_model=SessionResponse)
 def create_session(payload: SessionCreateRequest, db: Session = Depends(get_db)):
+    """
+    Initialize a new practice session.
+
+    Logic:
+    - If `topic_code` is provided, loads that specific topic context.
+    - If `custom_topic` is provided, creates an ad-hoc topic.
+    - Enforces "Placement Test" prerequisite if user has no history.
+    - Prepares the System Prompt using the POML template.
+
+    Args:
+        payload (SessionCreateRequest): Topic preference.
+
+    Returns:
+        SessionResponse: Session metadata and initial system prompt state.
+    """
     user = dao.ensure_default_user(db)
     topic = None
     if payload.topic_code:
@@ -119,6 +152,19 @@ def create_session(payload: SessionCreateRequest, db: Session = Depends(get_db))
 
 @router.post("/{session_id}/finish", response_model=SessionFinishResponse)
 def finish_session(session_id: str, db: Session = Depends(get_db)):
+    """
+    Conclude a session and trigger AI analysis.
+
+    This is the "Brain" of the post-session experience.
+    1. Aggregates all messages and errors from the session.
+    2. Uses LLM (via `quizgen` service) to generate:
+       - 3 Reading/Listening Comprehension Quizzes.
+       - Up to 5 SRS Flashcards based on mistakes.
+    3. Handles Placement Test evaluation if applicable.
+
+    Returns:
+        SessionFinishResponse: The generated quizzes for the frontend to display.
+    """
     session = dao.get_session(db, session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -239,6 +285,23 @@ def finish_session(session_id: str, db: Session = Depends(get_db)):
 
 @router.post("/{session_id}/submit_quiz", response_model=SessionFinishResponse)
 def submit_quiz(session_id: str, answers: dict[str, str], db: Session = Depends(get_db)):
+    """
+    Process quiz submission and generate SRS flashcards.
+
+    This step converts short-term memory (Quiz) into long-term retention (Flashcards).
+    1. Grades the quiz answers (Latency tracking planned).
+    2. Converts all DETECTED ERRORS from the session into Flashcards where:
+       - Front: Context sentence.
+       - Back: Correction + Tip.
+    3. Marks session as FINISHED (ready for report).
+
+    Args:
+        session_id (str): Session UUID.
+        answers (dict): Map of QuizID -> UserAnswerString.
+    
+    Returns:
+        SessionFinishResponse: Summary of created assets.
+    """
     session = dao.get_session(db, session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")

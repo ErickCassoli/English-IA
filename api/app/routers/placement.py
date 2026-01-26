@@ -9,6 +9,19 @@ from sqlalchemy.orm import Session
 from app.repo import dao, models
 from app.repo.db import get_db
 
+"""
+Placement Router
+================
+
+Handles the Placement Test logic for new users.
+Unlike the standard chat sessions, this module manages a static or dynamic assessment
+to determine the user's initial CEFR level (A1-C2).
+
+Endpoints:
+    - GET /questions: Retrieve the static question set.
+    - POST /submit: Grade the test and create a baseline MetricSnapshot.
+"""
+
 router = APIRouter(prefix="/api/placement", tags=["placement"])
 
 class Question(BaseModel):
@@ -69,6 +82,21 @@ def get_questions():
 
 @router.post("/submit")
 def submit_test(payload: Submission, db: Session = Depends(get_db)):
+    """
+    Evaluate the placement test answers.
+
+    Evaluation Logic:
+    1. Calculates percentage of correct answers against `QUESTIONS` static set.
+    2. Maps percentage to CEFR Level (e.g., >92% = C2, <24% = A1).
+    3. Creates a 'Finished' Session record to store this milestone.
+    4. Records a `MetricSnapshot` so the system knows the user's baseline.
+
+    Args:
+        payload (Submission): Dictionary of QuestionID -> UserAnswer.
+
+    Returns:
+        dict: Detailed score report (level, percentage, raw count).
+    """
     user = dao.ensure_default_user(db)
     
     correct_count = 0
