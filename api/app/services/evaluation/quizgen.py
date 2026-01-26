@@ -145,6 +145,14 @@ def generate_quiz(topic: str, errors: Sequence[ErrorSpan], messages: Sequence[Me
     for error in list(errors)[:4]:
         correct = error.corrected_text.strip()
         wrong = error.user_text.strip()
+        
+        # Filter out bad candidates
+        if len(wrong) < 3 and wrong.lower() not in ["i", "a", "an", "to", "in", "on", "at"]:
+            continue
+        if len(correct) > len(wrong) * 3 and len(wrong) < 5:
+            # Avoid "h" -> "I am very sorry..."
+            continue
+            
         prompt = f"Choose the best correction for \"{wrong}\""
         choices = _build_choices(correct, wrong)
         items.append(

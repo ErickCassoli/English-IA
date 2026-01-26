@@ -293,3 +293,10 @@ def get_recent_topics(db: Session = Depends(get_db)):
                     break
                     
     return result[:3]
+
+
+@router.get("/history", response_model=list[SessionResponse])
+def get_sessions_history(db: Session = Depends(get_db)):
+    user = dao.ensure_default_user(db)
+    sessions = dao.list_sessions_history(db, user)
+    return [_to_response(s, s.topic if s.topic else models.PracticeTopic(code=s.topic_code, label=s.topic_code, description="")) for s in sessions]

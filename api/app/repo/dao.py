@@ -473,3 +473,13 @@ def get_recent_topics(db: Session, user: models.User, limit: int = 3) -> list[mo
             break
             
     return unique_topics
+    
+def list_sessions_history(db: Session, user: models.User, limit: int = 50) -> list[models.Session]:
+    stmt = (
+        select(models.Session)
+        .where(models.Session.user_id == user.id)
+        .where(models.Session.status == models.SessionStatus.FINISHED)
+        .order_by(models.Session.started_at.desc())
+        .limit(limit)
+    )
+    return list(db.scalars(stmt))

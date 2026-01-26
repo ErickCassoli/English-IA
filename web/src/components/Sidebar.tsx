@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, MessageSquare, CreditCard, LifeBuoy, BookOpen, Settings } from "lucide-react";
+import { LayoutDashboard, MessageSquare, CreditCard, LifeBuoy, BookOpen, Settings, Clock } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../services/api";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Chat", href: "/chat", icon: MessageSquare },
+  { name: "History", href: "/history", icon: Clock },
   { name: "Flashcards", href: "/flashcards", icon: CreditCard },
   { name: "Practice", href: "/practice", icon: LifeBuoy },
 ];

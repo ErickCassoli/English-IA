@@ -21,7 +21,15 @@ export interface DetectedError {
 
 export interface SessionResponse {
     session_id: string;
-    topic_label?: string;
+    topic_code: string;
+    topic_label: string;
+    topic_description: string;
+    system_prompt: string;
+    status: string;
+    started_at: string;
+    ended_at: string | null;
+    active_minutes: number;
+    last_interaction_at: string;
 }
 
 export interface Settings {
@@ -183,5 +191,11 @@ export const api = {
     getRecentTopics: async (): Promise<{ code: string, label: string, description: string }[]> => {
         const res = await fetch(`${API_URL}/sessions/recent-topics`);
         return res.ok ? res.json() : [];
+    },
+
+    getSessionsHistory: async (): Promise<SessionResponse[]> => {
+        const res = await fetch(`${API_URL}/sessions/history`);
+        if (!res.ok) throw new Error('Failed to fetch history');
+        return res.json();
     }
 };

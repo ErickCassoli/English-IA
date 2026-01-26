@@ -3,6 +3,7 @@ import DashboardLayout from "./layouts/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
 import Chat from "./pages/Chat";
 import Practice from "./pages/Practice";
+import History from "./pages/History";
 import Flashcards from "./pages/Flashcards";
 import SettingsPage from "./pages/Settings";
 import Quiz from "./pages/Quiz";
@@ -19,6 +20,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/placement" element={<PlacementTest />} />
           <Route path="/chat" element={<Chat />} />
+          <Route path="/history" element={<History />} />
           <Route path="/flashcards" element={<Flashcards />} />
           <Route path="/practice" element={<Practice />} />
           <Route path="/settings" element={<SettingsPage />} />

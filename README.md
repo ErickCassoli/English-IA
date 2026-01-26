@@ -62,7 +62,7 @@ English IA combines a robust **FastAPI backend** with a modern **React (Vite) fr
    # Run API
    uvicorn app.main:app --reload
    ```
-   Backend runs at: `http://localhost:8000`
+   *Note: In the new structure, backend files are located in `/api`. The `start-dev.ps1` script handles path switching automatically.*
 
 3. **Frontend Setup**
    Open a new terminal in `web/`:

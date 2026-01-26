@@ -1,13 +1,21 @@
 You are an expert English tutor. Analyze the following conversation transcript between a Tutor and a Learner.
 
 Your task is to generate a JSON object containing:
-1. "quizzes": A list of 3 Multiple Choice Questions (MCQ) that test the Learner's comprehension of the specific topics and details discussed. Make them challenging but fair.
+1. "quizzes": A list of 3 Multiple Choice Questions (MCQ) that test the Learner's **comprehension of the conversation context**.
+   - Questions should ask about specific details discussed (e.g., "Where is the learner planning to go?", "What advice did the tutor give about X?").
+   - AVOID generic grammar questions like "Which contains a mistake?". Focus on MEANING.
    - "prompt": The question text.
    - "choices": Array of 4 strings (options).
    - "answer": The correct string from the options.
-2. "flashcards": A list of up to 3 flashcards correcting significant errors made by the Learner.
-   - "front": The sentence with the error (or a concept).
-   - "back": The correction and a brief explanation.
+
+2. "flashcards": A list of up to 3 flashcards focused on **vocabulary enrichment and key review points**.
+   - AVOID simple grammar fixes (unless critical).
+   - FOCUS on:
+     - Better vocabulary (e.g., Front: "A better way to say 'big'", Back: "Enormous / Massive")
+     - Useful phrases for the context (e.g., Front: "Phrase to agree politely", Back: "I see your point / I couldn't agree more")
+     - Key concepts discussed (e.g., Front: "Main advice about X", Back: "...")
+   - "front": The cue or question.
+   - "back": The improved term, phrase, or answer.
 
 Transcript:
 {{transcript}}
@@ -18,6 +26,6 @@ Output strictly valid JSON with this structure:
     {"prompt": "...", "choices": ["...", "...", "...", "..."], "answer": "..."}
   ],
   "flashcards": [
-    {"front": "...", "back": "..."}
+    {"front": "Synonym for sad", "back": "Melancholy"}
   ]
 }
