@@ -234,11 +234,15 @@ class FlashcardPayload:
     source_error_id: str | None = None
 
 
-def _load_prompt_template() -> str:
-    path = Path(__file__).resolve().parents[3] / "prompts" / "session_analysis.txt"
-    if path.exists():
-        return path.read_text(encoding="utf-8")
-    return "Analyze the transcript and return proper JSON quizzes and flashcards. {{transcript}}"
+from app.utils.prompts import poml
+
+def _load_prompt_template(transcript: str) -> str:
+    path = Path(__file__).resolve().parents[3] / "prompts" / "session_analysis.poml"
+    try:
+        return poml.load(path, variables={"transcript": transcript})
+    except Exception as e:
+        print(f"POML Load Error: {e}")
+        return f"Analyze this transcript: {transcript}"
 
 
 def generate_quiz_with_llm(
@@ -258,8 +262,7 @@ def generate_quiz_with_llm(
     transcript_text = "\n".join(transcript_lines)
     
     # 2. Load and format prompt
-    template = _load_prompt_template()
-    prompt_text = template.replace("{{transcript}}", transcript_text)
+    prompt_text = _load_prompt_template(transcript_text)
     
     # 3. Call LLM
     history = [{"role": "user", "content": prompt_text}]

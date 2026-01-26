@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Send, Bot, User, Sparkles, Flag, Mic, MicOff, Volume2 } from "lucide-react";
+import { Send, Bot, User, Sparkles, Flag } from "lucide-react";
 import { api, type ChatMessage } from "../services/api";
 import { Button } from "../components/ui/button";
 import { cn } from "../lib/utils";
@@ -16,67 +16,9 @@ export default function Chat() {
   const [loading, setLoading] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [showSelector, setShowSelector] = useState(false);
-  const [isListening, setIsListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<any>(null);
 
-  useEffect(() => {
-     // Initialize Speech Recognition if available
-     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-         recognitionRef.current = new SpeechRecognition();
-         recognitionRef.current.continuous = false;
-         recognitionRef.current.interimResults = true;
-         recognitionRef.current.lang = 'en-US';
 
-         recognitionRef.current.onresult = (event: any) => {
-             const transcript = event.results[0][0].transcript;
-             setInput(transcript);
-         };
-
-         recognitionRef.current.onend = () => {
-             setIsListening(false);
-         };
-
-         recognitionRef.current.onerror = (event: any) => {
-             console.error("Speech recognition error", event.error);
-             setIsListening(false);
-         };
-     }
-  }, []);
-
-  const toggleListening = () => {
-      if (!recognitionRef.current) {
-          alert("Speech recognition not supported in this browser.");
-          return;
-      }
-
-      if (isListening) {
-          recognitionRef.current.stop();
-          setIsListening(false);
-      } else {
-          setInput("");
-          recognitionRef.current.start();
-          setIsListening(true);
-      }
-  };
-
-  const speakText = (text: string) => {
-      if ('speechSynthesis' in window) {
-          // Cancel current speech if any
-          window.speechSynthesis.cancel();
-
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = 'en-US'; // Force English
-          
-          // Try to find a good voice
-          const voices = window.speechSynthesis.getVoices();
-          const preferredVoice = voices.find(v => v.lang.startsWith('en-US') && v.name.includes('Google')) || voices.find(v => v.lang.startsWith('en'));
-          if (preferredVoice) utterance.voice = preferredVoice;
-
-          window.speechSynthesis.speak(utterance);
-      }
-  };
 
   useEffect(() => {
     const topic = searchParams.get("topic");
@@ -231,16 +173,6 @@ export default function Chat() {
                         <span>{msg.text}</span>
                         {msg.role === 'assistant' && msg.detected_errors && msg.detected_errors.length > 0 && (
                             <CorrectionPopover errors={msg.detected_errors} />
-
-                        )}
-                        {msg.role === 'assistant' && (
-                             <button 
-                                onClick={() => speakText(msg.text)}
-                                className="absolute -bottom-6 left-0 p-1 text-slate-500 hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                                title="Read aloud"
-                             >
-                                <Volume2 className="h-4 w-4" />
-                             </button>
                         )}
                     </div>
                 </div>
@@ -279,18 +211,7 @@ export default function Chat() {
                 disabled={loading || finishing || showSelector}
             />
 
-            <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                    "mr-2 text-slate-400 hover:text-cyan-400 hover:bg-slate-700/50",
-                    isListening && "text-red-500 hover:text-red-600 animate-pulse bg-red-500/10"
-                )}
-                onClick={toggleListening}
-                disabled={loading || finishing || showSelector}
-            >
-                {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-            </Button>
+
 
             <Button 
                 size="icon"

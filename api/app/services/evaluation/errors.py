@@ -122,52 +122,10 @@ def detect_errors(text: str, llm_client=None) -> List[DetectedError]:
     # LLM Detection
     try:
         prompt_path = Path(__file__).resolve().parents[3] / "prompts" / "correction.poml"
-        if not prompt_path.exists():
-            return heuristic_errors
-
-        # Minimal prompt construction (if not using full POML parser)
-        # Or load the content.
-        content = prompt_path.read_text(encoding="utf-8")
         
-        # Simple string replacement for now
-        prompt = f"""You are an expert English language coach.
-Analyze the following learner message for specific errors in grammar, vocabulary, or fluency.
-Learner message: "{text}"
+        from app.utils.prompts import poml
+        prompt = poml.load(prompt_path, variables={"user_text": text})
 
-Return the result in strict JSON format with this structure:
-{{
-  "rectified": "The fully corrected version of the entire message",
-  "errors": [
-    {{
-      "start": <int>,
-      "end": <int>,
-      "category": "grammar" | "vocab" | "fluency",
-      "correction": "<replacement for the text between start and end>",
-      "note": "<brief explanation>"
-    }}
-  ]
-}}
-
-Guidelines:
-1. The 'rectified' field must be the complete corrected sentence.
-2. 'errors' should list specific isolated mistakes.
-3. 'start' and 'end' must exactly match the character indices of the incorrect segment in the Learner message.
-4. 'correction' should be the replacement ONLY for that segment.
-   - WRONG: Text: "I go store", Error on "go" -> Correction: "I am going to the store" (Too broad)
-   - RIGHT: Text: "I go store", Error on "go" -> Correction: "am going to" (Fits the slot)
-5. If the whole sentence is a mess, mark the whole sentence (start=0, end=len).
-6. Do NOT flag minor typos or single letters unless they obscure meaning.
-
-Examples:
-Input: "He go to school."
-Output: {{ "rectified": "He goes to school.", "errors": [{{ "start": 3, "end": 5, "category": "grammar", "correction": "goes", "note": "Third-person singular agreement." }}] }}
-
-Input: "I have hunger."
-Output: {{ "rectified": "I am hungry.", "errors": [{{ "start": 2, "end": 13, "category": "vocab", "correction": "am hungry", "note": "Use 'be hungry' to express this feeling." }}] }}
-
-If there are no errors, return {{ "rectified": "{text}", "errors": [] }}.
-Only return the JSON.
-"""
         response_text = llm_client.reply([{"role": "user", "content": prompt}])
         
         # Parse JSON

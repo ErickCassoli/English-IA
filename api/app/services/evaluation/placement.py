@@ -23,11 +23,18 @@ def evaluate_session(
         role = "Examiner" if msg.role == models.MessageRole.ASSISTANT else "Candidate"
         conversation_text += f"{role}: {msg.text}\n"
 
-    system_prompt = _load_prompt()
-    p = f"{system_prompt}\n\nTRANSCRIPT:\n{conversation_text}"
+    from app.utils.prompts import poml
+    path = Path(__file__).resolve().parents[3] / "prompts" / "placement_assessment.poml"
+    
+    try:
+        prompt = poml.load(path, variables={"transcript": conversation_text})
+    except Exception as e:
+        print(f"POML Load Error: {e}")
+        # Fallback
+        prompt = f"Analyze the following conversation: {conversation_text}. Return JSON {{'cefr_level': 'A1', ...}}"
     
     # We ask the LLM for a JSON response
-    response_text = llm_client.reply([{"role": "user", "content": p}])
+    response_text = llm_client.reply([{"role": "user", "content": prompt}])
     
     # Simple parsing (robustness improvements could be added)
     try:

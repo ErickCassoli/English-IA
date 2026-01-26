@@ -10,7 +10,16 @@ DEFAULT_TOPICS = [
     ("food", "Food", "Describe meals, flavors, restaurants, and cooking habits."),
     ("work", "Work", "Practice workplace scenarios, meetings, and career goals."),
     ("entertainment", "Entertainment", "Chat about music, movies, books, and hobbies."),
+    ("gaming", "Gaming", "Discuss video games, esports, mechanics, and lore."),
     ("daily_life", "Daily Life", "Cover routines, family, errands, and local life."),
+    ("health", "Health & Fitness", "Talk about exercise, diet, mental health, and medical visits."),
+    ("shopping", "Shopping", "Discuss fashion, sales, bargaining, and online stores."),
+    ("nature", "Nature & Environment", "Describe landscapes, wildlife, weather, and sustainability."),
+    ("history", "History & Culture", "Explore past events, traditions, and historical figures."),
+    ("job_interview", "Job Interview", "Practice answers for common interview questions."),
+    ("social_media", "Social Media", "Debate trends, influencers, and digital impact."),
+    ("relationships", "Relationships", "Discuss friendships, dating, family dynamics, and advice."),
+    ("education", "Education", "Talk about schools, degrees, learning methods, and teachers."),
 ]
 
 

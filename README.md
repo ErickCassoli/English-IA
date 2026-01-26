@@ -11,7 +11,6 @@ A production-ready full-stack application designed to simulate a real-world Engl
 
 ## ✨ Key Features
 
-- **🗣️ Voice-First Interaction**: Full Speech-to-Text and Text-to-Speech integration (Web Speech API) for hands-free practice.
 - **🤖 Context-Aware AI**: Chat with a tutor that understands context and nuance, not just scripted responses.
 - **📝 Real-time Corrections**: Grammar and vocabulary mistakes are detected on-the-fly without interrupting the flow.
 - **📚 Smart Flashcards**: Uses Spaced Repetition (SRS) algorithms (SM-2) to help you memorize vocabulary that *you* struggle with.

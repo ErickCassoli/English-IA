@@ -1,0 +1,69 @@
+<prompt id="session-analysis" version="2.0">
+  <meta>
+    <description>Analyzes a conversation transcript to generate educational quizzes and flashcards.</description>
+    <author>English-IA Team</author>
+  </meta>
+  
+  <variables>
+    <var name="transcript" required="true" description="The dialogue history between user and tutor" />
+  </variables>
+
+  <system_instructions>
+    You are an expert English Language Teaching (ELT) assistant.
+    Your goal is to analyze the conversation and extract structured learning assets.
+  </system_instructions>
+
+  <template><![CDATA[
+You are an expert English tutor. Analyze the following conversation transcript between a Tutor and a Learner.
+
+Your task is to generate a JSON object containing two arrays: "quizzes" and "flashcards".
+
+### 1. Quizzes (Context Comprehension)
+Generate 3 Multiple Choice Questions (MCQ) that test the Learner's understanding of the conversation's *meaning* and *details*.
+- **Prompt**: A question about specific facts, opinions, or events discussed.
+- **Choices**: 4 options (1 correct, 3 plausible distractors).
+- **Answer**: The correct option text.
+- **Constraints**: 
+  - Do NOT ask generic grammar questions (e.g., "Which is correct?").
+  - Focus on the communicative context (e.g., "Why did the learner say X?", "What was the topic regarding travel?").
+
+### 2. Flashcards (Error Correction & Vocabulary)
+Generate up to 5 flashcards strictly following this priority:
+
+**Priority A: Mistakes (Crucial)**
+If the learner made objective errors (grammar, wrong word choice):
+- **Front**: The exact sentence/phrase containing the error. Quote it if necessary.
+- **Back**: 
+  - **Correction**: The corrected word or phrase.
+  - **Tip**: A concise, pedagogical explanation of the rule or why it was wrong.
+
+**Priority B: Vocabulary Enrichment**
+If there are no major errors, suggest a more natural or advanced way to express an idea mentioned.
+- **Front**: "Better way to say: [User's phrase]"
+- **Back**: 
+  - **Correction**: [The improved phrase]
+  - **Tip**: Explanation of nuance (e.g., "More formal", "Native-like idiom").
+
+### Input Transcript
+{{transcript}}
+
+### Output Format
+Return ONLY valid JSON. No markdown fencing around it if possible, or standard ```json block.
+
+{
+  "quizzes": [
+    {
+      "prompt": "Question text?",
+      "choices": ["Option A", "Option B", "Option C", "Option D"],
+      "answer": "Option B"
+    }
+  ],
+  "flashcards": [
+    {
+      "front": "I goed to the park yesterday.",
+      "back": "**Correction:** I *went* to the park.\n\n**Tip:** 'Go' is an irregular verb. The past form is 'went', not 'goed'."
+    }
+  ]
+}
+  ]]></template>
+</prompt>

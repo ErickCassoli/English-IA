@@ -17,12 +17,16 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 runtime_config = get_settings()
 
 
+from app.utils.prompts import poml
+
 @lru_cache(maxsize=1)
 def _fallback_prompt() -> str:
     prompt_path = Path(__file__).resolve().parents[2] / "prompts" / "tutor_roleplay.poml"
-    if prompt_path.exists():
-        return prompt_path.read_text(encoding="utf-8")
-    return "You are a patient English tutor. Provide concise corrections."
+    try:
+        # Default fallback variables if loaded directly as fallback
+        return poml.load(prompt_path, variables={"topic_label": "General", "topic_description": "Free conversation"})
+    except:
+        return "You are a patient English tutor. Provide concise corrections."
 
 
 def _serialize_errors(detected: list[error_service.DetectedError]) -> list[DetectedErrorSchema]:

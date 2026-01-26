@@ -18,29 +18,37 @@ runtime_config = get_settings()
 # Trigger reload for prompt update
 
 
-@lru_cache(maxsize=1)
-def _base_system_prompt() -> str:
-    prompt_path = Path(__file__).resolve().parents[2] / "prompts" / "tutor_roleplay.poml"
-    if prompt_path.exists():
-        return prompt_path.read_text(encoding="utf-8").strip()
-    return "You are a patient English tutor helping the learner practice real-life conversations."
-
+from app.utils.prompts import poml
 
 def _build_prompt(topic: models.PracticeTopic) -> str:
-    if topic.code == "placement_test":
-        prompt_path = Path(__file__).resolve().parents[2] / "prompts" / "placement_test.poml"
-        if prompt_path.exists():
-            return prompt_path.read_text(encoding="utf-8").strip()
+    prompts_dir = Path(__file__).resolve().parents[2] / "prompts"
     
-    base = _base_system_prompt()
-    return (
-        f"{base}\n\n"
-        f"Conversation theme: {topic.label}.\n"
-        f"Context: {topic.description}\n"
-        "Keep the dialogue in English, ask follow-up questions. "
-        "Do NOT correct the user's grammar in your text response. "
-        "Just conversation."
-    )
+    if topic.code == "placement_test":
+        path = prompts_dir / "placement_test.poml"
+        # If it doesn't exist or load fails, fallback
+        try:
+            return poml.load(path)
+        except:
+             return "You are conducting an English placement test. Ask strictly 6 questions to determine level."
+
+    # Normal Tutor Roleplay
+    path = prompts_dir / "tutor_roleplay.poml"
+    variables = {
+        "topic_label": topic.label,
+        "topic_description": topic.description
+    }
+    
+    try:
+        return poml.load(path, variables=variables)
+    except Exception as e:
+        print(f"POML Load Error: {e}")
+        # Fallback
+        return (
+            "You are a patient English tutor.\n"
+            f"Topic: {topic.label}\n"
+            f"Context: {topic.description}\n"
+            "Keep dialogue natural."
+        )
 
 
 def _to_response(session: models.Session, topic: models.PracticeTopic) -> SessionResponse:
@@ -102,7 +110,6 @@ def create_session(payload: SessionCreateRequest, db: Session = Depends(get_db))
         if has_metrics == 0:
              raise HTTPException(status_code=403, detail="Placement Test Required")
 
-    system_prompt = _build_prompt(topic)
     system_prompt = _build_prompt(topic)
     session = dao.create_session(db, user, topic, system_prompt)
     db.commit()
@@ -253,7 +260,14 @@ def submit_quiz(session_id: str, answers: dict[str, str], db: Session = Depends(
     errors = dao.list_session_errors(db, session_id)
     flashcards_created = 0
     for error in errors:
-        _, created = dao.ensure_flashcard_from_error(db, error, error.user_text, error.corrected_text)
+        # User requested: Front = The Error (Context), Back = Tip + Correction
+        # We try to use the full message text as context if available
+        front_text = error.message.text if error.message else error.user_text
+        
+        # Format the back with structure
+        back_text = f"**Correction:** {error.corrected_text}\n\n**Tip:** {error.note}"
+        
+        _, created = dao.ensure_flashcard_from_error(db, error, front_text, back_text)
         if created:
             flashcards_created += 1
 

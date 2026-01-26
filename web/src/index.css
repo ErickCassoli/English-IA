@@ -20,4 +20,18 @@
   .glass-panel {
     @apply bg-[#0f172a]/60 backdrop-blur-2xl border-l border-white/5;
   }
+
+  /* 3D Flip Utilities */
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+  .rotate-y-180 {
+    transform: rotateY(180deg);
+  }
 }

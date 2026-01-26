@@ -113,6 +113,19 @@ export const api = {
         return res.json();
     },
 
+    getAllFlashcards: async (): Promise<any[]> => {
+        const res = await fetch(`${API_URL}/flashcards`);
+        if (!res.ok) throw new Error('Failed to fetch flashcards');
+        return res.json();
+    },
+
+    deleteFlashcard: async (cardId: string): Promise<void> => {
+        const res = await fetch(`${API_URL}/flashcards/${cardId}`, {
+            method: 'DELETE',
+        });
+        if (!res.ok) throw new Error('Failed to delete flashcard');
+    },
+
     createFlashcard: async (front: string, back: string): Promise<any> => {
         const res = await fetch(`${API_URL}/flashcards/manual`, {
             method: 'POST',

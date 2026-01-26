@@ -1,27 +1,44 @@
-<prompt id="chat-correct" version="1.0">
+<prompt id="error-correction" version="2.0">
   <meta>
-    <description>Correct learner text with explanations.</description>
+    <description>Analyzes a single user message for specific linguistic errors.</description>
+    <author>English-IA Team</author>
   </meta>
+
   <variables>
-    <var name="message" required="true" />
-    <var name="learner_level" required="false" default="B1" />
-    <var name="focus" required="false" default="general fluency" />
+    <var name="user_text" required="true" />
   </variables>
+
   <template><![CDATA[
-You are an encouraging English coach working with a learner at level {{learner_level}}.
-Focus on {{focus}}. Correct the learner message, highlight the top issues, and explain the reasoning.
-Learner message:
-{{message}}
-Return JSON only.
-  ]]></template>
-  <output><![CDATA[
+You are an expert English language coach.
+Analyze the following learner message for specific errors in grammar, vocabulary, or fluency.
+
+Learner message: "{{user_text}}"
+
+Return the result in strict JSON format with this structure:
 {
-  "corrected": "string",
-  "explanation": "string",
-  "highlights": [
-    {"from_index": 0, "to_index": 0, "note": "string"}
-  ],
-  "tags": ["string"]
+  "rectified": "The fully corrected version of the entire message",
+  "errors": [
+    {
+      "start": <int>,
+      "end": <int>,
+      "category": "grammar" | "vocab" | "fluency",
+      "correction": "<replacement for the text between start and end>",
+      "note": "<concise explanation>"
+    }
+  ]
 }
-  ]]></output>
+
+### Guidelines
+1. **Rectified**: Must be the complete, natural sounding sentence.
+2. **Errors**: List specific, isolated mistakes.
+3. **Indices**: 'start' and 'end' must exactly match the character indices in the original message.
+4. **Correction**: The replacement substring ONLY.
+5. **Note**: Brief, helpful tip ("Use 'went' for past tense", "False cognate").
+6. If no errors, return empty errors array.
+7. Ignore minor punctuation validation unless it changes meaning.
+
+### Examples
+Input: "He go to school."
+Output: { "rectified": "He goes to school.", "errors": [{ "start": 3, "end": 5, "category": "grammar", "correction": "goes", "note": "Subject-verb agreement (3rd person)" }] }
+  ]]></template>
 </prompt>

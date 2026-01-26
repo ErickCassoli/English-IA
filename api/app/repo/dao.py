@@ -301,6 +301,24 @@ def list_flashcards_due(db: Session, limit: int = 20) -> list[models.Flashcard]:
     return list(db.scalars(stmt))
 
 
+def list_all_flashcards(db: Session, limit: int = 100) -> list[models.Flashcard]:
+    stmt = (
+        select(models.Flashcard)
+        .order_by(models.Flashcard.created_at.desc())
+        .limit(limit)
+    )
+    return list(db.scalars(stmt))
+
+
+def delete_flashcard(db: Session, card_id: str) -> bool:
+    card = db.get(models.Flashcard, card_id)
+    if not card:
+        return False
+    db.delete(card)
+    db.flush()
+    return True
+
+
 def update_flashcard_state(
     db: Session, card: models.Flashcard, reps: int, interval: int, ease: float, due_at: datetime
 ) -> models.Flashcard:

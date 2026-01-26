@@ -16,6 +16,31 @@ from app.services.evaluation import srs
 router = APIRouter(prefix="/api/flashcards", tags=["flashcards"])
 
 
+@router.get("", response_model=list[FlashcardSchema])
+def list_flashcards(db: Session = Depends(get_db)):
+    cards = dao.list_all_flashcards(db)
+    return [
+        FlashcardSchema(
+            id=card.id,
+            front=card.front,
+            back=card.back,
+            due_at=card.due_at,
+            reps=card.reps,
+            interval=card.interval,
+            ease=float(card.ease),
+        )
+        for card in cards
+    ]
+
+
+@router.delete("/{card_id}", status_code=204)
+def delete_flashcard(card_id: str, db: Session = Depends(get_db)):
+    success = dao.delete_flashcard(db, card_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Flashcard not found")
+    db.commit()
+
+
 @router.get("/due", response_model=list[FlashcardSchema])
 def due_flashcards(db: Session = Depends(get_db)):
     cards = dao.list_flashcards_due(db)
