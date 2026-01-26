@@ -1,111 +1,101 @@
-# English IA
+# English IA 🚀
 
-**Interactive AI English Learning Platform**
+**An AI-Powered English Language Learning Platform**
 
-A full-stack application designed to help users practice English conversation through AI-driven tutoring, adaptive quizzes, and spaced repetition flashcards.
-
+![Status](https://img.shields.io/badge/status-active-success.svg)
+![CI](https://github.com/yourusername/english-ia/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
-![React](https://img.shields.io/badge/react-18+-blue.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-green.svg)
+![Tech](https://img.shields.io/badge/stack-FastAPI%20%7C%20React%20%7C%20TS-blue)
 
-## Overview
+A production-ready full-stack application designed to simulate a real-world English tutor. It uses Large Language Models (LLM) to conduct open-ended conversations, correcting the user in real-time and adaptively creating study materials based on individual mistakes.
 
-English IA combines a robust **FastAPI backend** with a modern **React (Vite) frontend** to create an immersion-focused learning environment.
+## ✨ Key Features
 
-### Key Features
+- **🗣️ Voice-First Interaction**: Full Speech-to-Text and Text-to-Speech integration (Web Speech API) for hands-free practice.
+- **🤖 Context-Aware AI**: Chat with a tutor that understands context and nuance, not just scripted responses.
+- **📝 Real-time Corrections**: Grammar and vocabulary mistakes are detected on-the-fly without interrupting the flow.
+- **📚 Smart Flashcards**: Uses Spaced Repetition (SRS) algorithms (SM-2) to help you memorize vocabulary that *you* struggle with.
+- **📜 Session History**: Review past conversations, topics discussed, and evolution over time.
+- **🧠 Adaptive Quizzes**: "Knowledge Checks" generated dynamically based on specific conversation content to verify comprehension.
+- **📊 Detailed Analytics**: CEFR level estimation (A1-C2), vocabulary tracking, and daily streak monitoring.
 
-- **🗣️ AI Conversation Practice**: Chat with a context-aware AI tutor on various topics (Travel, Technology, Business).
-- **📝 Automatic Error Correction**: Real-time feedback on grammar, vocabulary, and fluency provided by the AI.
-- **🧠 Adaptive Quizzes**: "Knowledge Checks" generated dynamically based on your conversation history.
-- **⚡ Spaced Repetition (SRS)**: Flashcards created automatically from your mistakes, reviewed using the SM-2 algorithm.
-- **📊 Progress Dashboard**: Track vocabulary size, fluency level (CEFR estimation), and study streaks.
-- **🔧 Modular LLM Support**: Switch between OpenAI, Ollama (local), or Mock providers easily.
+## 🛠️ Tech Stack & Engineering
 
-## Architecture
+Built with a focus on **Software Engineering Best Practices**:
 
-- **Backend**: Python, FastAPI, SQLite (SQLAlchemy), Alembic (Migrations).
-- **Frontend**: TypeScript, React, Vite, TailwindCSS, Lucide Icons.
-- **Communication**: REST API + WebSockets.
-- **Infrastructure**: Docker & Docker Compose support.
+- **Frontend**: React 18, TypeScript, Vite, TailwindCSS (Dark/Light mode ready), Radix UI.
+- **Backend**: Python 3.11, FastAPI, SQLAlchemy (SQLite/PostgreSQL ready).
+- **AI/LLM**: Modular design supporting OpenAI, Google Gemini, or local models via Ollama.
+- **Quality Assurance**:
+  - **CI/CD**: GitHub Actions pipeline for automated Backend Testing (`pytest`) and Frontend Build checks.
+  - **Testing**: Comprehensive Unit/Integration tests for API and Frontend Components (`vitest`).
+- **DevOps**: Fully Dockerized environment (`docker-compose`) with Nginx reverse proxy.
 
-## Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
+- Docker & Docker Compose (Recommended)
+- *Or* Node.js 20+ & Python 3.11+
 
-- Python 3.11+
-- Node.js 18+ (for frontend)
-- Docker (optional, for containerized run)
+### Quick Start (Docker)
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/yourusername/english-ia.git
+cd english-ia
+
+# 2. Run with Docker Compose
+docker compose up --build
+```
+Access the app at `http://localhost:5173`.
 
 ### Local Development
 
-1. **Clone the repository**
+1. **Backend**:
    ```bash
-   git clone https://github.com/yourusername/english-ia.git
-   cd english-ia
-   ```
-
-2. **Backend Setup**
-   ```bash
-   # Create virtual environment
+   cd api
    python -m venv .venv
-   # Activate (Windows: .\.venv\Scripts\activate, Linux/Mac: source .venv/bin/activate)
-   . .venv/bin/activate
-   
-   # Install dependencies
-   pip install -r requirements.txt -r requirements-dev.txt
-   
-   # Setup Database (Migrations + Seed)
+   source .venv/bin/activate  # or .\.venv\Scripts\activate on Windows
+   pip install -r requirements.txt
    alembic upgrade head
-   python -m app.repo.seed
-   
-   # Run API
    uvicorn app.main:app --reload
    ```
-   *Note: In the new structure, backend files are located in `/api`. The `start-dev.ps1` script handles path switching automatically.*
 
-3. **Frontend Setup**
-   Open a new terminal in `web/`:
+2. **Frontend**:
    ```bash
    cd web
    npm install
    npm run dev
    ```
-   Frontend runs at: `http://localhost:5173` (Proxies requests to localhost:8000)
 
-### Running with Docker
+## 📂 Project Structure
 
+Verified clean architecture separating concerns:
+
+```
+├── .github/workflows/   # CI/CD Pipelines
+├── api/                 # FastAPI Backend (Domain-Driven Design elements)
+│   ├── app/services/    # Core Logic (LLM, SRS, Evaluation)
+│   ├── app/routers/     # REST Endpoints
+│   └── tests/           # Pytest Suite
+├── web/                 # React Frontend
+│   ├── src/components/  # Reusable UI Components
+│   ├── src/pages/       # Route Views (Chat, History, Flashcards)
+│   └── src/services/    # Typed API Client
+└── scripts/             # Dev & Maintenance utilities
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please run the test suite before submitting PRs:
 ```bash
-docker compose up --build
-```
-Access the application at `http://localhost:5173`. (Ensure docker-compose exposes the frontend port).
+# Backend
+pytest api/tests
 
-## Project Structure
-
-```
-├── app/                  # FastAPI Application
-│   ├── main.py           # Entry point
-│   ├── routers/          # API Endpoints
-│   ├── services/         # Business Logic (LLM, SRS, Quiz)
-│   └── repo/             # Database Models & Access
-├── web/                  # React Frontend
-│   ├── src/
-│   │   ├── components/   # UI Components
-│   │   ├── pages/        # Route Pages
-│   │   └── services/     # API Client
-├── scripts/              # Utility scripts for testing/verification
-└── tests/                # Pytest suite
+# Frontend
+cd web && npm test
 ```
 
-## Contributing
+## 📜 License
 
-1. Fork the project.
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`).
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4. Push to the branch (`git push origin feature/AmazingFeature`).
-5. Open a Pull Request.
-
-## License
-
-Distributed under the MIT License. See `LICENSE` for more information.
-
+MIT License.
