@@ -40,7 +40,7 @@ Built with a focus on **Software Engineering Best Practices**:
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/yourusername/english-ia.git
+git clone https://github.com/ErickCassoli/english-ia.git
 cd english-ia
 
 # 2. Run with Docker Compose
