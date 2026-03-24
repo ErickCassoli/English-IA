@@ -7,13 +7,6 @@ from app.repo import models
 from app.services.llm import registry
 
 
-def _load_prompt() -> str:
-    path = Path(__file__).resolve().parents[3] / "prompts" / "placement_assessment.poml"
-    if path.exists():
-        return path.read_text(encoding="utf-8")
-    return "Analyze the following conversation and return JSON with keys: cefr_level, score_0_100, justification."
-
-
 def evaluate_session(
     llm_client: registry.LLMClient,
     messages: list[models.Message]

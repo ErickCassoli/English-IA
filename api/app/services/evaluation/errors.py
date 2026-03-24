@@ -85,27 +85,7 @@ def _detect_fluency(text: str) -> List[DetectedError]:
 
 from pathlib import Path
 import json
-from app.repo import dao
-from app.repo.db import get_db
 from app.services.llm import registry
-from app.utils.config import get_settings
-
-def _detect_with_llm(text: str) -> List[DetectedError]:
-    try:
-        settings = get_settings()
-        # We need a db session to get settings for LLM key, but usually this service is called within a request.
-        # Ideally, we pass llm_client in. For now, let's try to get a temporary session or use default config if possible.
-        # But wait, `registry.get_llm` needs `settings_row`.
-        # Simplification: Assume environment variables for keys if DB access is complex here.
-        # OR: Refactor `detect_errors` signature to accept `llm_client`.
-        # However, `chat.py` calls `detect_errors` and it HAS a db session.
-        # Correct approach: Update `detect_errors` signature to accept `db`.
-        pass 
-    except Exception:
-        return []
-
-# We will change the signature of `detect_errors` in checking `chat.py` next.
-# For now, let's implement the logic assuming we have an LLM client or can get one.
 
 def detect_errors(text: str, llm_client=None) -> List[DetectedError]:
     """Return error spans for the provided sentence using LLM if available, else regex."""
@@ -145,7 +125,7 @@ def detect_errors(text: str, llm_client=None) -> List[DetectedError]:
                 s = max(0, int(s))
                 end_ = min(len(text), int(end_))
                 
-                cat_str = e.get("category", "grammar").upper()
+                cat_str = e.get("category", "grammar").lower()
                 try:
                     cat = ErrorCategory(cat_str)
                 except:

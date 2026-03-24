@@ -11,12 +11,11 @@ class OllamaClient(LLMClient):
         self.model = model
 
     def reply(self, history: list[HistoryMessage]) -> str:
-        prompt = "\n".join(f"{msg['role']}: {msg['content']}" for msg in history)
-        payload = {"model": self.model, "prompt": prompt, "stream": False}
+        payload = {"model": self.model, "messages": history, "stream": False}
         try:
-            response = httpx.post(f"{self.base_url}/api/generate", json=payload, timeout=60.0)
+            response = httpx.post(f"{self.base_url}/api/chat", json=payload, timeout=60.0)
             response.raise_for_status()
             data = response.json()
-            return data.get("response") or data.get("output") or "Let's keep practicing!"
+            return data.get("message", {}).get("content") or "Let's keep practicing!"
         except Exception as exc:  # pragma: no cover - network dependent
             return f"(offline) Unable to reach Ollama: {exc}. Let's keep practicing!"

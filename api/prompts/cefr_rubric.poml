@@ -7,12 +7,17 @@
     <var name="fluency_notes" required="false" default="Stable flow" />
   </variables>
   <template><![CDATA[
-Use the following rubric to summarize the learner level.
+Use the following rubric to summarize the learner level based on their accuracy score.
+
+Accuracy score: {{accuracy}}%
+Fluency notes: {{fluency_notes}}
+
+CEFR reference:
 - A2: accuracy below 60%
 - B1: accuracy between 60% and 74%
 - B2: accuracy between 75% and 89%
 - C1: accuracy 90% or above
-Mention the provided fluency_notes.
+
 Return JSON only.
   ]]></template>
   <output><![CDATA[
