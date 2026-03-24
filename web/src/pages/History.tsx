@@ -5,7 +5,6 @@ import {
   MessageSquare,
   ChevronRight,
   BookOpen,
-  Loader2,
   AlertTriangle,
 } from "lucide-react";
 import { api, type SessionResponse } from "../services/api";
