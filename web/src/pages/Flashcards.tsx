@@ -52,14 +52,29 @@ export default function Flashcards() {
   };
 
   if (loading) {
-     return <div className="text-slate-400 text-center p-12">Loading collection...</div>;
+    return (
+      <div className="space-y-8 animate-fade-in">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="skeleton h-7 w-40" />
+            <div className="skeleton h-4 w-24" />
+          </div>
+          <div className="skeleton h-10 w-28 rounded-xl" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 stagger">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="skeleton h-64 rounded-2xl" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-fade-in">
       <div className="flex items-center justify-between">
          <div>
-            <h1 className="text-3xl font-bold text-white tracking-tight text-amber-100">My Collection</h1>
+            <h1 className="text-3xl font-bold text-white tracking-tight gradient-text">My Collection</h1>
             <p className="text-slate-400 mt-2">{cards.length} cards in your library</p>
          </div>
          <Button className="bg-cyan-500 hover:bg-cyan-600" onClick={() => setIsAddModalOpen(true)}>

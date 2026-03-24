@@ -75,16 +75,20 @@ export default function Chat() {
   const sendMessage = async (sid: string, text: string) => {
     const tempMsg: ChatMessage = { role: "user", text };
     setMessages(prev => [...prev, tempMsg]);
-    
+
     try {
         const res = await api.sendMessage(sid, text);
-        setMessages(prev => [...prev, { 
-            role: "assistant", 
+        setMessages(prev => [...prev, {
+            role: "assistant",
             text: res.reply,
-            detected_errors: res.detected_errors 
+            detected_errors: res.detected_errors
         }]);
     } catch (err) {
         console.error(err);
+        setMessages(prev => [...prev, {
+            role: "assistant",
+            text: "Sorry, something went wrong sending your message. Please check the backend is running and try again.",
+        }]);
     } finally {
         setLoading(false);
     }

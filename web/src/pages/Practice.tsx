@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageSquare, Globe, Laptop, Coffee, Briefcase, Music, Sun, Plus, Gamepad2, Heart, ShoppingBag, Leaf, Landmark, UserCheck, Share2, Users, GraduationCap } from "lucide-react";
+import { MessageSquare, Globe, Laptop, Coffee, Briefcase, Music, Sun, Plus, Gamepad2, Heart, ShoppingBag, Leaf, Landmark, UserCheck, Share2, Users, GraduationCap, AlertTriangle } from "lucide-react";
 import { api, type PracticeTopic } from "../services/api";
 import { Button } from "../components/ui/button";
 
@@ -42,41 +42,73 @@ const getGradient = (code: string) => {
     }
 };
 
+function SkeletonTopicCard() {
+  return (
+    <div className="glass-card rounded-2xl p-6 space-y-4 border border-slate-700">
+      <div className="skeleton h-12 w-12 rounded-xl" />
+      <div className="skeleton h-5 w-32" />
+      <div className="space-y-2">
+        <div className="skeleton h-3 w-full" />
+        <div className="skeleton h-3 w-3/4" />
+      </div>
+    </div>
+  );
+}
+
 export default function Practice() {
   const navigate = useNavigate();
   const [topics, setTopics] = useState<PracticeTopic[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Fetch all available topics
-    api.getTopics()
-       .then(setTopics)
-       .catch(console.error)
-       .finally(() => setLoading(false));
+    api
+      .getTopics()
+      .then(setTopics)
+      .catch(() => setError("Could not load topics. Is the backend running?"))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleStart = (topicCode: string) => {
-      navigate(`/chat?topic=${topicCode}`);
+    navigate(`/chat?topic=${topicCode}`);
   };
 
-  if (loading) return <div className="text-center p-12 text-slate-500">Loading topics...</div>;
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4 text-center">
+        <div className="h-16 w-16 bg-red-500/10 rounded-full flex items-center justify-center ring-1 ring-red-500/20">
+          <AlertTriangle className="h-8 w-8 text-red-400" />
+        </div>
+        <p className="text-slate-400 max-w-sm">{error}</p>
+        <Button onClick={() => window.location.reload()} className="bg-cyan-500 hover:bg-cyan-600">
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-fade-in">
       <div>
-        <h1 className="text-3xl font-bold text-white tracking-tight">Themed Practice</h1>
-        <p className="text-slate-400 mt-2">Choose a topic to start a focused conversation session.</p>
+        <h1 className="text-3xl font-bold text-white tracking-tight gradient-text">Themed Practice</h1>
+        <p className="text-slate-400 mt-2">Choose a topic to start a focused conversation session with your AI tutor.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 stagger">
+          {Array.from({ length: 6 }).map((_, i) => <SkeletonTopicCard key={i} />)}
+        </div>
+      ) : null}
+
+      <div className={loading ? "hidden" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 stagger"}>
         {topics.map(topic => (
             <button
                 key={topic.code}
                 onClick={() => handleStart(topic.code)}
                 className={`
-                    relative group p-6 rounded-2xl border border-slate-700 
+                    relative group p-6 rounded-2xl border border-slate-700/80
                     bg-gradient-to-br ${getGradient(topic.code)}
-                    transition-all duration-300 hover:scale-[1.02] hover:shadow-xl text-left
+                    transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl text-left focus:outline-none focus:ring-2 focus:ring-cyan-500/50
                 `}
             >
                 <div className="mb-4 bg-slate-900/50 w-12 h-12 rounded-xl flex items-center justify-center border border-slate-700 group-hover:border-white/20 transition-colors">
