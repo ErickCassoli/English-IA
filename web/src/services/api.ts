@@ -39,6 +39,34 @@ export interface Settings {
     target_language?: string;
 }
 
+export interface ReportKPIs {
+    words: number;
+    errors: number;
+    accuracy_pct: number;
+    cefr_estimate: string;
+}
+
+export interface ReportExample {
+    source: string;
+    target: string;
+    note: string;
+}
+
+export interface QuizSummary {
+    total: number;
+    correct: number;
+    accuracy_pct: number;
+}
+
+export interface ReportResponse {
+    summary: string;
+    kpis: ReportKPIs;
+    quiz_summary: QuizSummary;
+    strengths: string[];
+    improvements: string[];
+    examples: ReportExample[];
+}
+
 export interface DashboardSummary {
     study_time_hours: number;
     study_time_total_seconds: number;
@@ -210,5 +238,11 @@ export const api = {
         const res = await fetch(`${API_URL}/sessions/history`);
         if (!res.ok) throw new Error('Failed to fetch history');
         return res.json();
-    }
+    },
+
+    getReport: async (sessionId: string): Promise<ReportResponse> => {
+        const res = await fetch(`${API_URL}/reports/${sessionId}`);
+        if (!res.ok) throw new Error('Failed to fetch report');
+        return res.json();
+    },
 };
