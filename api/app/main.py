@@ -16,7 +16,6 @@ from app.routers import (
     quiz,
     reports,
     sessions,
-    sessions,
     settings as settings_router,
     admin,
     placement,
@@ -53,7 +52,6 @@ def create_app() -> FastAPI:
     app.include_router(reports.router)
     app.include_router(flashcards.router)
     app.include_router(dashboard.router)
-    app.include_router(settings_router.router)
     app.include_router(settings_router.router)
     app.include_router(admin.router)
     app.include_router(placement.router)
